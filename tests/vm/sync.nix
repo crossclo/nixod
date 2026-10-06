@@ -52,7 +52,6 @@ let
 
   settings = import ../fixture/settings.nix;
 
-  hosts = lib.attrNames (lib.filterAttrs (_: m: m.role == "host") network.machines);
 in
 pkgs.testers.runNixOSTest {
   name = "nixod-sync";
@@ -83,14 +82,23 @@ pkgs.testers.runNixOSTest {
         };
       };
 
-      # Hosts may only reach each other through the hub, from boot on (IPv6
-      # too: Syncthing's discovery runs until its settings are applied).
-      networking.firewall.extraCommands = lib.concatMapStrings (other: ''
-        iptables -I INPUT -s ${other} -j DROP
-        iptables -I OUTPUT -d ${other} -j DROP
-        ip6tables -I INPUT -s ${other} -j DROP
-        ip6tables -I OUTPUT -d ${other} -j DROP
-      '') (lib.optionals (machine.role == "host") (lib.remove name hosts));
+      # On hosts, Syncthing traffic (port 22000, either end, TCP and UDP,
+      # IPv4 and IPv6) is only allowed with the hub, from boot on. Until its
+      # settings are applied, Syncthing's LAN discovery also offers IPv6
+      # link-local addresses, so this filters on the port, not on addresses.
+      networking.firewall.extraCommands = lib.optionalString (machine.role == "host") (
+        lib.concatMapStrings
+          (rule: ''
+            iptables ${rule}
+            ip6tables ${rule}
+          '')
+          [
+            "-I INPUT -p tcp -m multiport --ports 22000 ! -s hub -j DROP"
+            "-I INPUT -p udp -m multiport --ports 22000 ! -s hub -j DROP"
+            "-I OUTPUT -p tcp -m multiport --ports 22000 ! -d hub -j DROP"
+            "-I OUTPUT -p udp -m multiport --ports 22000 ! -d hub -j DROP"
+          ]
+      );
 
       system.stateVersion = "25.11";
     }

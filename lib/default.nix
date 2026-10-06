@@ -4,6 +4,7 @@
 
 let
   settingsLib = import ./settings.nix { inherit lib; };
+  networkLib = import ./network.nix { inherit lib; };
 
   systems = [
     "x86_64-linux"
@@ -14,6 +15,8 @@ in
   inherit (settingsLib) missingSettings;
 
   defaults = import ./defaults.nix { inherit lib; };
+  derive = import ./derive.nix { inherit lib; };
+  networkErrors = networkLib.errors;
 
   # inputs:  the instance flake's inputs (nixpkgs, home-manager, disko)
   # root:    the instance repo
@@ -26,8 +29,12 @@ in
     }:
     let
       settings = import (root + "/settings.nix");
-      network = import (root + "/network.nix");
       missing = settingsLib.missingSettings settings;
+
+      # Every machine is built from a valid network.nix, or not at all.
+      networkFile = import (root + "/network.nix");
+      networkErrors = networkLib.errors networkFile;
+      network = if networkErrors == [ ] then networkFile else throw (networkLib.message networkErrors);
 
       mkMachine =
         name: machine:
@@ -44,12 +51,19 @@ in
 
           optionalFile = path: lib.optional (builtins.pathExists path) path;
 
-          role = machine.role or (throw "nixod: network.nix: machines.${name}.role is not set");
+          inherit (machine) role;
 
           common = [
             self.nixosModules.default
             {
-              nixod = { inherit settings role; };
+              nixod = {
+                inherit
+                  name
+                  settings
+                  role
+                  network
+                  ;
+              };
               networking.hostName = lib.mkDefault name;
             }
             (require "default.nix" "Describe the machine there (profiles, boot loader, stateVersion).")
@@ -87,12 +101,6 @@ in
             (require "disko.nix" "Write the hub's disk layout there (see nixod probe).")
           ];
         in
-        assert lib.assertMsg (lib.elem role
-          [
-            "host"
-            "hub"
-          ]
-        ) "nixod: network.nix: machines.${name}.role must be \"host\" or \"hub\", not \"${toString role}\"";
         inputs.nixpkgs.lib.nixosSystem {
           specialArgs = { inherit inputs; };
           modules = common ++ (if role == "hub" then hub else host) ++ modules;
@@ -102,13 +110,17 @@ in
       nixosConfigurations = lib.mapAttrs mkMachine (network.machines or { });
 
       # `nix flake check` evaluates every machine, which runs the settings
-      # assertions. This check makes it fail too when there is no machine yet.
-      checks = lib.genAttrs systems (system: {
-        nixod-settings =
-          if missing == [ ] then
-            inputs.nixpkgs.legacyPackages.${system}.runCommand "nixod-settings" { } "touch $out"
-          else
-            throw (settingsLib.missingMessage missing);
-      });
+      # assertions. These checks make it fail too when there is no machine yet.
+      checks = lib.genAttrs systems (
+        system:
+        let
+          ok = name: inputs.nixpkgs.legacyPackages.${system}.runCommand name { } "touch $out";
+        in
+        {
+          nixod-settings =
+            if missing == [ ] then ok "nixod-settings" else throw (settingsLib.missingMessage missing);
+          nixod-network = builtins.seq network (ok "nixod-network");
+        }
+      );
     };
 }

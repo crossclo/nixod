@@ -41,8 +41,16 @@ let
   );
 
   missingInTemplate = self.lib.missingSettings templateSettings;
+
+  deriveFailures = import ./derive.nix { inherit lib; };
 in
 {
+  # network.nix in, expected Syncthing/SSH config out.
+  derive = check "derive" (deriveFailures == [ ]) ("\n" + lib.concatStringsSep "\n" deriveFailures);
+
+  # Hub + 2 hosts in VMs: files sync through the hub only.
+  vm-sync = import ./vm/sync.nix { inherit self pkgs; };
+
   # A dummy host with every profile on, and a dummy hub.
   eval-host = evaluates "host" fixture.nixosConfigurations.tower;
   eval-hub = evaluates "hub" fixture.nixosConfigurations.hub;

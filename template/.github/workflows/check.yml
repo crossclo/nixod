@@ -1,0 +1,18 @@
+name: check
+
+# Every push and every join request (pull request): `nix flake check`
+# evaluates every machine, checks settings.nix (NIXOD:FILL) and network.nix.
+# No full builds here (too heavy for CI): `nixod review` builds the new host
+# and the hub on a trusted machine.
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+      - name: nix flake check
+        run: nix flake check --no-build --show-trace

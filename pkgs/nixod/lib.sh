@@ -111,3 +111,18 @@ verify() {
 
 # expand_home <path>: ~/x → $HOME/x
 expand_home() { printf '%s' "${1/#\~/$HOME}"; }
+
+# fetch_request <pr number | branch>: fetches a join request and the branch
+# from origin, prints the request's commit. A PR number reads GitHub's
+# refs/pull/<n>/head; anything else is a branch name.
+fetch_request() {
+  local id=$1 src
+  if [[ $id =~ ^[0-9]+$ ]]; then src=refs/pull/$id/head; else src=refs/heads/$id; fi
+  git fetch --quiet origin \
+    "+refs/heads/$NIXOD_BRANCH:refs/remotes/origin/$NIXOD_BRANCH" \
+    "+$src:refs/nixod/request/${id//\//-}" >&2 || die "can't fetch $id from origin"
+  git rev-parse "refs/nixod/request/${id//\//-}"
+}
+
+# review_marker <id>: where `nixod review` records the commit it reviewed.
+review_marker() { printf '%s/nixod-reviewed-%s' "$(git rev-parse --absolute-git-dir)" "${1//\//-}"; }

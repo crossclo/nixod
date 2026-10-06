@@ -61,6 +61,10 @@ in
   # check + notification, trust-once on the console vs over SSH.
   vm-update = import ./vm/update.nix { inherit self pkgs; };
 
+  # The join flow: join, review, approve between two machines; the hub and
+  # the new host follow.
+  vm-join = import ./vm/join.nix { inherit self pkgs; };
+
   # install-hub on a blank disk; the hub boots with its staged identity.
   vm-install-hub = import ./vm/install-hub.nix { inherit self inputs pkgs; };
 

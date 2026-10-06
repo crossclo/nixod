@@ -202,9 +202,9 @@ by hand on a machine.
 | `nixod identity hub <name>` | first host | generates the hub's Syncthing identity, SSH host key and deploy key in a staging dir (`$XDG_RUNTIME_DIR`, tmpfs); prints the public parts |
 | `nixod probe root@<ip>` | first host | reads the VPS's stock OS: interfaces, addresses, routes, DNS, disks, BIOS/UEFI. Prints JSON for the agent |
 | `nixod install-hub <name> root@<ip>` | first host | adds the deploy key on GitHub (`gh repo deploy-key add --read-only`), runs `nixos-anywhere --extra-files <staging> --chown …`, then wipes the staging dir |
-| `nixod join` | new host | branch `join/<name>`, commit, push, `gh pr create` |
-| `nixod review <pr>` | trusted host | fetches the PR, shows the `network.nix` diff and the files touched, builds the new host and the hub locally |
-| `nixod approve <pr>` | trusted host | `git merge --no-ff -S` of the PR locally, push. GitHub marks the PR merged |
+| `nixod join` | new host | branch `join/<name>`, commit, push, `gh pr create` (`--no-pr`: push only) |
+| `nixod review <pr\|branch>` | trusted host | fetches the request, shows the machines added/removed, the `network.nix` diff and the files touched, and warns (with the full diff) about any file outside `network.nix` and the new host's `hosts/<name>/`; builds the new host and the hub; records the reviewed commit |
+| `nixod approve <pr\|branch>` | trusted host | refuses unless the request is exactly the reviewed commit; `git merge --no-ff -S` locally, push. GitHub marks the PR merged |
 | `nixod check` | hosts (timer) | fetch + verify; notifies if a verified update is waiting |
 | `nixod update` | hosts | verify, fast-forward, `nixos-rebuild switch` |
 | `nixod remove <name>` | trusted host | removes the entry, signed commit, push |

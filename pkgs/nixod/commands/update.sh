@@ -43,6 +43,17 @@ step "Check the clone"
   die "uncommitted changes in $clone: commit (and push) or stash them first"
 git -C "$clone" merge-base --is-ancestor HEAD "$new" ||
   die "$clone has commits that are not on origin/$NIXOD_BRANCH: push them first (or rebase on it)"
+# Right after a join, the clone is still on its join/<name> branch.
+if [[ $(git -C "$clone" symbolic-ref --short -q HEAD || true) != "$NIXOD_BRANCH" ]]; then
+  step "Switch the clone to $NIXOD_BRANCH"
+  if git -C "$clone" show-ref --verify --quiet "refs/heads/$NIXOD_BRANCH"; then
+    run git -C "$clone" switch --quiet "$NIXOD_BRANCH"
+  else
+    run git -C "$clone" switch --quiet --create "$NIXOD_BRANCH" --track "origin/$NIXOD_BRANCH"
+  fi
+  [[ $DRY_RUN == 1 ]] || git -C "$clone" merge-base --is-ancestor HEAD "$new" ||
+    die "local $NIXOD_BRANCH has commits that are not on origin/$NIXOD_BRANCH: push them first"
+fi
 
 if [[ $new == "$cur" && $(git -C "$clone" rev-parse HEAD) == "$new" ]]; then
   info "up to date at $cur"

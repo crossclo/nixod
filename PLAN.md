@@ -327,11 +327,13 @@ clone.
 12. `nixod recovery-kit` → the agent makes sure the user has written down the
     passphrase before finishing.
 
-> To check in phase 3: whether nixos-anywhere can run "kexec + generate the
-> hardware config" and "disko + install" as two separate runs (its `--phases`
-> option). If it can't, the fallback is one run, then the hardware file is
-> committed right after the install and a first update rebuilds the hub from the
-> clean commit.
+> Checked in phase 3 (nixos-anywhere 1.13): the two runs work. `--phases kexec
+> --generate-hardware-config nixos-generate-config <path>` boots the installer and
+> runs `nixos-generate-config --no-filesystems` without touching the disk. The
+> install run lists `kexec,disko,install,reboot`; nixos-anywhere skips kexec when
+> the target already runs the installer, and kexecs again if the VPS rebooted in
+> between. `install-hub` builds first and passes `--store-paths`, and refuses to
+> install when the staged Syncthing ID is not the one in `network.nix`.
 
 ### Join
 

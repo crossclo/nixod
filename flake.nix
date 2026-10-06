@@ -32,6 +32,11 @@
         inherit (nixpkgs) lib;
       };
 
+      packages = forAllSystems (pkgs: rec {
+        nixod = pkgs.callPackage ./pkgs/nixod { };
+        default = nixod;
+      });
+
       templates.default = {
         path = ./template;
         description = "A private nixod instance: your settings, your machines, your dotfiles";

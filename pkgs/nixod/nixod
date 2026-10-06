@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# nixod: entry point. Each command is a short script in commands/, made of
+# named steps. Read it to see what a command does, or to run a step by hand.
+set -euo pipefail
+
+libexec=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+
+usage() {
+  cat <<'EOF'
+Usage: nixod <command> [options]
+
+  identity host <name>             create this host's identity (Syncthing, SSH key)
+  identity hub <name>              create the hub's identity in a tmpfs staging dir
+  probe <user@ip>                  describe a VPS's stock system (network, disks, boot)
+  install-hub <name> <user@ip>     install NixOS on the hub with nixos-anywhere
+
+Every command takes --dry-run (print the steps and commands, run nothing)
+and --help.
+EOF
+}
+
+cmd=${1:-}
+[[ $# -gt 0 ]] && shift
+case $cmd in
+identity | probe | install-hub) exec "$libexec/commands/$cmd.sh" "$@" ;;
+"" | -h | --help | help) usage ;;
+*)
+  printf 'nixod: unknown command: %s\n\n' "$cmd" >&2
+  usage >&2
+  exit 2
+  ;;
+esac

@@ -51,6 +51,12 @@ in
   # Hub + 2 hosts in VMs: files sync through the hub only.
   vm-sync = import ./vm/sync.nix { inherit self pkgs; };
 
+  # The CLI in the sandbox: --dry-run changes nothing, identities are reused.
+  cli = import ./cli.nix { inherit self pkgs; };
+
+  # install-hub on a blank disk; the hub boots with its staged identity.
+  vm-install-hub = import ./vm/install-hub.nix { inherit self inputs pkgs; };
+
   # A dummy host with every profile on, and a dummy hub.
   eval-host = evaluates "host" fixture.nixosConfigurations.tower;
   eval-hub = evaluates "hub" fixture.nixosConfigurations.hub;

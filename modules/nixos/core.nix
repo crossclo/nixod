@@ -47,6 +47,7 @@ in
         curl
         pciutils
         usbutils
+        (pkgs.callPackage ../../pkgs/nixod { })
       ];
     }
 

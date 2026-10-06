@@ -1,7 +1,7 @@
 # SSH trust, generated from network.nix:
 #   - every machine knows the hub's host key;
 #   - /etc/nixod/allowed_signers lists the keys that may sign commits;
-#   - on the hub, every host key (and the recovery key) may log in.
+#   - on the hub, every host key may log in.
 { config, lib, ... }:
 
 let

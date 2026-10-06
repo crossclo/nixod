@@ -41,7 +41,6 @@ let
         hub.ignoreDelete = true;
       };
     };
-    recovery.key = key "Recovery";
   };
 
   cases = {
@@ -135,7 +134,6 @@ let
       expected = [
         (key "Laptop")
         "${key "Tower"} alice@tower"
-        (key "Recovery")
       ];
     };
 
@@ -155,7 +153,6 @@ let
       expected = ''
         laptop namespaces="git" ${key "Laptop"}
         tower namespaces="git" ${key "Tower"}
-        recovery namespaces="git" ${key "Recovery"}
       '';
     };
 
@@ -174,12 +171,8 @@ let
       expected = {
         signers = ''
           tower namespaces="git" ${key "Tower"}
-          recovery namespaces="git" ${key "Recovery"}
         '';
-        keys = [
-          "${key "Tower"} alice@tower"
-          (key "Recovery")
-        ];
+        keys = [ "${key "Tower"} alice@tower" ];
       };
     };
 

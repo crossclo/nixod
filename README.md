@@ -169,23 +169,27 @@ machine** and one **trusted machine** (any machine already in your network).
 ## Flow 4: Recovery (every machine lost, only the VPS left)
 
 Your files are safe: the VPS keeps them and keeps running. What you've lost is a
-machine that can approve changes. There are two ways back in, and neither
-touches the VPS's data.
+machine that can approve changes. The way back in goes through your VPS
+provider's web console, and doesn't touch the VPS's data:
 
-**With your recovery passphrase** (given to you once, at setup):
 1. Install NixOS on a new machine, clone your repo, start your agent and tell it:
-   *"Recover my nixod network."*
-2. Enter the passphrase. It unlocks the recovery key stored, encrypted, in your
-   repo. The new machine adds itself to the network with it.
-3. The VPS accepts the new machine. Rebuild it, and your files come back.
-4. You get a **new** passphrase. Write it down; the old one no longer works.
-
-**Without the passphrase**, through your VPS provider's web console:
-1. Log into your provider's panel, open the VPS console, and log in with the
+   *"Recover my nixod network."* It describes the machine and creates its
+   identity, as when adding a machine.
+2. Log into your provider's panel, open the VPS console, and log in with the
    console password you set at setup.
-2. Tell the VPS to trust your new machine's key for one single change.
-3. The new machine joins itself. The VPS applies that one change, then goes back
-   to normal.
+3. Tell the VPS to trust your new machine's key for one single change.
+4. The new machine adds itself to the network. The VPS applies that one change,
+   then goes back to normal. Rebuild the new machine, and your files come back.
+
+So keep access to your VPS provider account and the console password: with every
+machine lost, they are the only way back in.
+
+> **Not implemented, on purpose: a recovery passphrase.** A recovery key,
+> encrypted with a generated passphrase and stored in the repo, would let you
+> recover without the provider console. It is left out for safety: anyone who
+> ever gets a copy of the repo could keep the encrypted key and try to break it
+> later ("store now, decrypt later"), with better hardware or a weakness found
+> in the encryption. The console needs nothing stored anywhere.
 
 > Never reinstall the VPS to get back in: reinstalling wipes its disk, and at
 > that point it holds the only copy of your files.

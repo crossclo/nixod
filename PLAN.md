@@ -209,8 +209,6 @@ by hand on a machine.
 | `nixod update` | hosts | verify, fast-forward, `nixos-rebuild switch` |
 | `nixod remove <name>` | trusted host | removes the entry, signed commit, push |
 | `nixod status` | any | running commit vs `main`, Syncthing peers, last hub update |
-| `nixod recovery-kit` | first host (init) / after a recovery | creates the recovery key, encrypts it with a generated passphrase into `recovery/recovery.key`, adds the public part to `network.nix`, shows the passphrase **once** |
-| `nixod recover` | fresh machine | decrypts the recovery key with the passphrase, signs the commit that adds this machine, pushes, then runs `recovery-kit` again |
 | `nixod trust-once <pubkey>` | hub, **provider console only** | trusts this key for exactly one verified update, then clears it |
 
 ---
@@ -263,40 +261,31 @@ safe because the hub keeps syncing, but nobody can get back in. **Reinstalling
 the hub is never the answer:** disko wipes the disk, and at that moment the hub
 holds the only copy of the data.
 
-**1. Recovery key (main path).**
-- `network.nix` gets a `recovery.key` entry: a public key that is **not tied to a
-  machine**. `derive.nix` adds it to `allowed_signers` and to the hub's
-  `authorizedKeys`.
-- The private key lives in the repo at `recovery/recovery.key`, encrypted with
-  `ssh-keygen`'s passphrase (bcrypt KDF, high rounds). The passphrase is generated
-  (10 words from a diceware list, about 128 bits), never chosen by the user. Even
-  with full repo access, guessing it is not feasible.
-- The user keeps only the passphrase (paper, phone password manager).
-- `nixod recover` on a fresh NixOS machine:
-  1. clone the repo;
-  2. describe the host and create its identity (as in a join);
-  3. decrypt the recovery key in memory (tmpfs), sign the commit, push to `main`;
-  4. the hub accepts it as a normal signed fast-forward;
-  5. rebuild the machine;
-  6. `nixod recovery-kit` rotates the recovery key, because the old one has been
-     decrypted on a machine. The new public key, signed by this new trusted host,
-     replaces the old one.
-
-**2. Provider console (if the passphrase is lost too).**
-- The hub's console password (`hashedPassword` for the user) becomes
-  **required at init**. This is the provider VNC/serial console, never SSH,
-  where password login stays disabled.
+**The provider console.**
+- The hub's console password (`hashedPassword` for the user) is **required at
+  init**. This is the provider VNC/serial console, never SSH, where password
+  login stays disabled.
+- The new machine is described and gets its identity, as in a join, and its
+  entry is committed (signed with its own key).
 - On the console: `nixod trust-once <new host userKey>` writes
   `/var/lib/nixod/trust-once`. The update check accepts a signature from that key
   **once**, then deletes the file, even if the check fails.
-- The new host makes a normal join commit signed with its own key and pushes it.
-  The hub applies it, and the host is in `network.nix` for good. Then a new
-  recovery kit is made.
+- The new host pushes its commit. The hub applies it, and the host is in
+  `network.nix` for good.
 - The command refuses to run outside a local console (it checks that the session
   is not an SSH session), so it can only be used from the console.
 
-**Unrecoverable only if** every host, the passphrase and the provider account are
-all lost. If GitHub access is lost too, `/var/lib/nixod/repo` on the hub is a full
+**Not implemented, on purpose: a recovery key.** The idea was a key not tied to a
+machine, its public part in `allowed_signers`, its private part in the repo
+encrypted with a generated passphrase (10 diceware words, about 128 bits), and
+`nixod recover` to sign with it from a fresh machine. It is left out for safety:
+anyone who ever gets a copy of the repo (a leak, a fork, a backup) could keep the
+encrypted key and attack it later ("store now, decrypt later"), with better
+hardware or a weakness found in the KDF. The console path stores nothing. If it
+comes back, the key should live outside the repo (paper, hardware token).
+
+**Unrecoverable only if** every host and the provider account (or the console
+password) are all lost. If GitHub access is lost too, `/var/lib/nixod/repo` on the hub is a full
 clone.
 
 ---
@@ -324,8 +313,8 @@ clone.
 10. **Asks the user to confirm before wiping the VPS disk**, then
     `nixod install-hub --stage install` (disko + install + reboot).
 11. `nixod status` → the hub is up and Syncthing is connected.
-12. `nixod recovery-kit` → the agent makes sure the user has written down the
-    passphrase before finishing.
+12. The agent makes sure the user has kept the hub's console password and access
+    to the provider account: with every host lost, they are the way back in.
 
 > Checked in phase 3 (nixos-anywhere 1.13): the two runs work. `--phases kexec
 > --generate-hardware-config nixos-generate-config <path>` boots the installer and
@@ -354,8 +343,7 @@ clone.
   review / change / remove), each pointing to a playbook in the framework's
   `docs/agent/`;
 - **invariants (never broken, whatever the case):**
-  - never commit a private key (the passphrase-encrypted recovery key is the
-    only exception);
+  - never commit a private key;
   - get explicit confirmation before anything that wipes a disk, and **never
     reinstall a hub that holds data**;
   - never skip, weaken or work around update verification;
@@ -368,7 +356,7 @@ clone.
     tell the user what is different and why;
   - if the fix is general, suggest it upstream to the framework.
 
-Describing a host (shared by init, join and recover), in this order:
+Describing a host (shared by init, join and recovery), in this order:
 
 **Step 1: NixOS hardware configuration (mandatory, always first).**
 - `nixos-generate-config --show-hardware-config > hosts/<name>/hardware-configuration.nix`,
@@ -430,9 +418,8 @@ services, packages and settings that aren't hardware.
     unsigned commit, a commit signed by an unknown key, and a rollback are all
     rejected; a host gets a notification;
   - removal: a removed host's key no longer verifies;
-  - recovery: with every host key gone, a commit signed by the recovery key is
-    accepted and the key is rotated; `trust-once` accepts exactly one update, is
-    then cleared, and refuses to run over SSH.
+  - recovery: with every host key gone, `trust-once` accepts exactly one update
+    signed by the new host's key, is then cleared, and refuses to run over SSH.
 - **nixos-anywhere:** a local QEMU VM running Debian as the fake VPS, then one real
   test on a throwaway VPS.
 - **Dogfooding:** move bennie's real network (Poppy, Layla, VPS) onto nixod as the
@@ -447,7 +434,7 @@ services, packages and settings that aren't hardware.
 | 1. Framework skeleton | modules/profiles ported from the dotfiles (all modules except the personal tool list in `home/security.nix`, which is not read or ported), personal data removed; `settings.nix` + assertions; template | a dummy host evaluates; CI green |
 | 2. The network | `network.nix` schema, `derive.nix`, `syncthing.nix`, `ssh.nix` | eval tests + 3-node sync VM test pass |
 | 3. CLI: identities + hub | `identity`, `probe`, `install-hub` | the hub installs on a local VM with a known ID |
-| 4. Updates and trust | verification script, `update-hub`, `update-host`, notification, `recovery-kit`, `recover`, `trust-once` | update + recovery VM tests pass (accept + all rejections) |
+| 4. Updates and trust | verification script, `update-hub`, `update-host`, notification, `trust-once` | update + recovery VM tests pass (accept + all rejections) |
 | 5. Join | `join`, `review`, `approve`, CI workflow | a full join flow works between two VMs |
 | 6. Agent | `AGENTS.md`, playbooks | a fresh agent completes init on VMs from the README alone |
 | 7. Dogfood | bennie's network migrated | Poppy, Layla and the VPS run on nixod; old dotfiles archived |

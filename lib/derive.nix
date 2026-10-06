@@ -105,12 +105,8 @@ rec {
     else
       lib.unique (lib.concatMap levels (lib.attrValues (machine.folders or { })));
 
-  # Keys that may log into the hub (root and the user): every host, plus
-  # the recovery key.
-  authorizedKeys =
-    network:
-    map (m: m.userKey) (lib.attrValues (hosts network))
-    ++ lib.optional (network ? recovery) network.recovery.key;
+  # Keys that may log into the hub (root and the user): every host's.
+  authorizedKeys = network: map (m: m.userKey) (lib.attrValues (hosts network));
 
   # programs.ssh.knownHosts on every machine: the hub's host key.
   knownHosts =
@@ -129,11 +125,10 @@ rec {
     };
 
   # /etc/nixod/allowed_signers: the keys that may sign commits. One line per
-  # host (principal = machine name), plus the recovery key.
+  # host (principal = machine name).
   allowedSigners =
     network:
     lib.concatStrings (
       lib.mapAttrsToList (name: m: "${name} namespaces=\"git\" ${keyOnly m.userKey}\n") (hosts network)
-      ++ lib.optional (network ? recovery) "recovery namespaces=\"git\" ${keyOnly network.recovery.key}\n"
     );
 }

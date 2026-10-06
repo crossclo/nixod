@@ -82,7 +82,6 @@ in
         removeAttrs network [
           "machines"
           "folders"
-          "recovery"
         ]
       )
     )
@@ -90,10 +89,7 @@ in
     ++ lib.optional (
       machines != { } && hubCount != 1
     ) "there must be exactly one hub (found ${toString hubCount})"
-    ++ map (id: "Syncthing ID ${id} is used by more than one machine") duplicateIds
-    ++ lib.optional (
-      network ? recovery && !matches sshKeyRe (network.recovery.key or null)
-    ) "recovery.key is not an ssh-ed25519 public key";
+    ++ map (id: "Syncthing ID ${id} is used by more than one machine") duplicateIds;
 
   message =
     errors: "nixod: network.nix is invalid:\n" + lib.concatMapStrings (e: "  - ${e}\n") errors;

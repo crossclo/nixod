@@ -14,15 +14,21 @@ Usage: nixod <command> [options]
   probe <user@ip>                  describe a VPS's stock system (network, disks, boot)
   install-hub <name> <user@ip>     install NixOS on the hub with nixos-anywhere
 
-Every command takes --dry-run (print the steps and commands, run nothing)
-and --help.
+  check                            fetch and verify updates; notify (hosts)
+  update                           verify, fast-forward and switch to the update (hosts)
+  status                           running commit, last hub update, Syncthing peers
+  trust-once <public key>          hub console only: accept one update signed by it
+  update-hub                       the hub's automatic update (run by systemd)
+
+Every command takes --help. identity, probe, install-hub and update take
+--dry-run: print the steps and the exact commands, run nothing.
 EOF
 }
 
 cmd=${1:-}
 [[ $# -gt 0 ]] && shift
 case $cmd in
-identity | probe | install-hub) exec "$libexec/commands/$cmd.sh" "$@" ;;
+identity | probe | install-hub | check | update | status | trust-once | update-hub) exec "$libexec/commands/$cmd.sh" "$@" ;;
 "" | -h | --help | help) usage ;;
 *)
   printf 'nixod: unknown command: %s\n\n' "$cmd" >&2

@@ -218,8 +218,10 @@ by hand on a machine.
 ### Signature verification (shared by the hub and hosts)
 
 ```
-cur = commit the running system was built from
-      (system.configurationRevision = self.rev; deploying a dirty tree is refused)
+cur = commit the running system runs: the last one the hub applied
+      (/var/lib/nixod/revision), else the one it was built from
+      (system.configurationRevision = self.rev). On a host built from a dirty
+      tree (no revision), the user's clone HEAD stands in.
 new = origin/<branch> after fetch
 
 1. new == cur                       → nothing to do

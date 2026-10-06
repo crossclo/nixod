@@ -13,6 +13,8 @@
   openssh,
   syncthing,
   jq,
+  curl,
+  libnotify,
   git,
   gh,
   nix,
@@ -66,6 +68,8 @@ stdenvNoCC.mkDerivation {
           openssh
           syncthing
           jq
+          curl
+          libnotify
           git
           gh
           nixos-anywhere

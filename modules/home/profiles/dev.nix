@@ -33,7 +33,6 @@
       sqlite
 
       # ---- Misc ----
-      gh # GitHub CLI
       lazygit # git TUI
       httpie # readable HTTP client
     ];

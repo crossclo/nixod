@@ -65,6 +65,9 @@ in
                   ;
               };
               networking.hostName = lib.mkDefault name;
+              # The commit this system is built from: updates must build on
+              # it. Unset when built from a dirty tree.
+              system.configurationRevision = inputs.self.rev or null;
             }
             (require "default.nix" "Describe the machine there (profiles, boot loader, stateVersion).")
             (require "hardware-configuration.nix" (

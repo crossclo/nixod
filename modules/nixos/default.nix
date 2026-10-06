@@ -6,6 +6,7 @@
     ./nixod/hub.nix
     ./nixod/syncthing.nix
     ./nixod/ssh.nix
+    ./nixod/update.nix
     ./profiles/desktop-i3.nix
     ./profiles/audio.nix
     ./profiles/networking.nix

@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# nixod update-hub   (the hub's nixod-update.service, every few minutes)
+#
+# Fetches the repo into the hub's own clone, with the read-only deploy key,
+# then applies the new commit only if:
+#   1. it builds on the commit the hub runs (no rewritten history, no rollback);
+#   2. it is signed by a key in /etc/nixod/allowed_signers, from the RUNNING
+#      system (a commit can't vouch for itself), or by the one-time key that
+#      `nixod trust-once` set from the console.
+# Otherwise, or if the build fails, the running system stays. The result goes
+# to the journal and to /var/lib/nixod/status (`nixod status`).
+set -euo pipefail
+# shellcheck source=../lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../lib.sh"
+load_config
+
+[[ ${1:-} == -h || ${1:-} == --help ]] && {
+  echo "Usage: nixod update-hub   (run by nixod-update.service on the hub)"
+  exit 0
+}
+[[ -n ${NIXOD_REPO_URL:-} && -n ${NIXOD_NAME:-} ]] || die "NIXOD_REPO_URL and NIXOD_NAME must be set (/etc/nixod/config)"
+
+repo=$NIXOD_STATE/repo
+trust_once=$NIXOD_STATE/trust-once
+
+record() { # record <result> <message>
+  printf '%s %s %s\n' "$(date -Iseconds)" "$1" "$2" >"$NIXOD_STATE/status"
+  printf '%s: %s\n' "$1" "$2"
+}
+
+step "Fetch $NIXOD_BRANCH from $NIXOD_REPO_URL"
+mkdir -p "$NIXOD_STATE"
+[[ -d $repo/.git ]] || git clone --quiet --no-checkout "$NIXOD_REPO_URL" "$repo"
+git -C "$repo" fetch --quiet --force origin "+refs/heads/$NIXOD_BRANCH:refs/remotes/origin/$NIXOD_BRANCH"
+new=$(git -C "$repo" rev-parse "refs/remotes/origin/$NIXOD_BRANCH")
+
+cur=$(running_rev)
+if [[ -z $cur ]]; then
+  record error "the running commit is unknown (system not built from a clean commit)"
+  exit 1
+fi
+if [[ $new == "$cur" ]]; then
+  record ok "up to date at $cur"
+  exit 0
+fi
+
+step "Verify $new"
+signers=$NIXOD_SIGNERS
+if [[ -e $trust_once ]]; then
+  signers=$(mktemp)
+  trap 'rm -f "$signers"' EXIT
+  cat "$NIXOD_SIGNERS" >"$signers"
+  printf 'trust-once namespaces="git" %s\n' "$(cut -d' ' -f1,2 "$trust_once")" >>"$signers"
+  # One check only, whatever its result.
+  rm -f "$trust_once"
+  info "the trust-once key is accepted for this check only (now removed)"
+fi
+if ! reason=$(verify "$repo" "$cur" "$new" "$signers"); then
+  record rejected "$reason"
+  exit 1
+fi
+
+step "Switch to $new"
+git -C "$repo" checkout --quiet --force --detach "$new"
+if [[ -n ${NIXOD_APPLY:-} ]]; then
+  apply=("$NIXOD_APPLY" "$repo" "$new")
+else
+  apply=(nixos-rebuild switch --flake "$repo#$NIXOD_NAME")
+fi
+if ! "${apply[@]}"; then
+  record failed "applying $new failed: the previous system keeps running (see the journal)"
+  exit 1
+fi
+printf '%s\n' "$new" >"$NIXOD_STATE/revision"
+record ok "applied $new"

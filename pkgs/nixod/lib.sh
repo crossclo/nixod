@@ -66,3 +66,48 @@ syncthing_id() { syncthing --home "$1" device-id; }
 
 # public_key <file.pub>: "type base64 comment" of an SSH public key.
 public_key() { tr -d '\n' <"$1"; }
+
+# ---- Machine config (written by NixOS to /etc/nixod/config) ----
+# NIXOD_NAME, NIXOD_ROLE, NIXOD_REPO_URL, NIXOD_BRANCH, NIXOD_REPO_PATH, ...
+# Values already in the environment win (tests, manual runs).
+load_config() {
+  local file=${NIXOD_CONFIG:-/etc/nixod/config} line key
+  if [[ -r $file ]]; then
+    while IFS= read -r line; do
+      [[ $line =~ ^([A-Z_]+)= ]] || continue
+      key=${BASH_REMATCH[1]}
+      [[ -n ${!key:-} ]] || eval "$line"
+    done <"$file"
+  fi
+  NIXOD_SIGNERS=${NIXOD_SIGNERS:-/etc/nixod/allowed_signers}
+  NIXOD_STATE=${NIXOD_STATE:-/var/lib/nixod}
+  NIXOD_BRANCH=${NIXOD_BRANCH:-main}
+}
+
+# The commit this machine runs: the last update nixod applied, else the
+# revision the running system was built from.
+running_rev() {
+  local rev
+  rev=$(cat "$NIXOD_STATE/revision" 2>/dev/null || true)
+  # The running system's own nixos-version has its revision built in.
+  [[ -n $rev ]] || rev=$(/run/current-system/sw/bin/nixos-version --configuration-revision 2>/dev/null || true)
+  printf '%s' "$rev"
+}
+
+# verify <repo> <cur> <new> <signers>: may <new> be applied on top of <cur>?
+# Prints why not and returns 1. The signers file must come from the running
+# system, never from the commit being checked.
+verify() {
+  local repo=$1 cur=$2 new=$3 signers=$4
+  if ! git -C "$repo" merge-base --is-ancestor "$cur" "$new" 2>/dev/null; then
+    echo "$new does not build on the running commit $cur (rewritten history or rollback)"
+    return 1
+  fi
+  if ! git -C "$repo" -c gpg.ssh.allowedSignersFile="$signers" verify-commit "$new" >/dev/null 2>&1; then
+    echo "$new is not signed by a trusted machine"
+    return 1
+  fi
+}
+
+# expand_home <path>: ~/x → $HOME/x
+expand_home() { printf '%s' "${1/#\~/$HOME}"; }

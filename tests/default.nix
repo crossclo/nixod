@@ -54,6 +54,13 @@ in
   # The CLI in the sandbox: --dry-run changes nothing, identities are reused.
   cli = import ./cli.nix { inherit self pkgs; };
 
+  # Update verification: every accept and reject case, hub and host side.
+  update = import ./update.nix { inherit self pkgs; };
+
+  # Updates with the real services: hub over SSH with its deploy key, host
+  # check + notification, trust-once on the console vs over SSH.
+  vm-update = import ./vm/update.nix { inherit self pkgs; };
+
   # install-hub on a blank disk; the hub boots with its staged identity.
   vm-install-hub = import ./vm/install-hub.nix { inherit self inputs pkgs; };
 

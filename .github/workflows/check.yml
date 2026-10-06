@@ -1,8 +1,10 @@
 name: check
 
+# The framework's own tests (VM tests included) run on demand only:
+#   gh workflow run check -R crossclo/nixod
+# Instances get their own workflow from template/ (it checks the user's config).
 on:
-  push:
-  pull_request:
+  workflow_dispatch:
 
 jobs:
   flake-check:

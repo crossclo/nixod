@@ -54,6 +54,15 @@ in
   # The CLI in the sandbox: --dry-run changes nothing, identities are reused.
   cli = import ./cli.nix { inherit self pkgs; };
 
+  # The playbooks and AGENTS.md only mention commands, flags and playbooks
+  # that exist.
+  docs = import ./docs.nix { inherit self pkgs; };
+
+  # An instance exposes the CLI of its pinned framework (`nix run .#nixod`).
+  template-nixod = check "template-nixod" (lib.isDerivation
+    template.packages.${system}.nixod
+  ) "the template's flake has no packages.nixod";
+
   # Update verification: every accept and reject case, hub and host side.
   update = import ./update.nix { inherit self pkgs; };
 

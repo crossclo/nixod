@@ -2,6 +2,7 @@
 # tower (trusted) reviews and approves it; the hub applies the signed merge;
 # laptop updates to it. On the way: approve refuses a request it hasn't
 # reviewed or that changed after review, and review flags shared files.
+# Then tower removes laptop again (`nixod remove`).
 #
 # The request is a branch on a `github` VM (no GitHub API: `--no-pr`, and
 # review/approve take the branch name). Builds are skipped (`--no-build`)
@@ -192,5 +193,21 @@ pkgs.testers.runNixOSTest {
         assert alice(laptop, "git -C nixod rev-parse --abbrev-ref HEAD").strip() == "main"
         assert alice(laptop, "git -C nixod rev-parse HEAD").strip() == merge
         laptop.succeed(f"grep -q {merge} /tmp/nixod-applied")
+
+    with subtest("remove refuses while the entry is there, and for the hub"):
+        out = alice(tower, "cd nixod && nixod remove laptop --no-build", ok=False)
+        assert "still in network.nix" in out, out
+        out = alice(tower, "cd nixod && nixod remove hub --no-build", ok=False)
+        assert "is the hub" in out, out
+
+    with subtest("remove: entry deleted by hand, nixod remove commits signed and pushes"):
+        alice(tower, "cd nixod && cp ${nixFile "network.nix" base} network.nix && nixod remove laptop --no-build")
+        removal = github.succeed("su - git -c 'git -C nixod.git rev-parse main'").strip()
+        assert "nixod: remove laptop" in github.succeed("su - git -c 'git -C nixod.git log -1 --format=%s main'")
+        assert alice(tower, "git -C nixod ls-files hosts/laptop").strip() == ""
+        alice(tower, "git -C nixod -c gpg.ssh.allowedSignersFile=/etc/nixod/allowed_signers verify-commit HEAD")
+        hub.succeed("systemctl start nixod-update.service")
+        status = hub.succeed("cat /var/lib/nixod/status")
+        assert f"applied {removal}" in status, status
   '';
 }

@@ -112,6 +112,13 @@ in
     {
       nixosConfigurations = lib.mapAttrs mkMachine (network.machines or { });
 
+      # `nix run .#nixod -- <command>`: the CLI of the locked framework
+      # version, before this machine runs nixod.
+      packages = lib.genAttrs systems (system: rec {
+        nixod = self.packages.${system}.nixod;
+        default = nixod;
+      });
+
       # `nix flake check` evaluates every machine, which runs the settings
       # assertions. These checks make it fail too when there is no machine yet.
       checks = lib.genAttrs systems (

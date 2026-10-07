@@ -19,6 +19,8 @@
   gh,
   nix,
   nixos-anywhere,
+  # The agent playbooks, printed by `nixod doc`.
+  docs ? ../../docs/agent,
 }:
 
 stdenvNoCC.mkDerivation {
@@ -52,6 +54,7 @@ stdenvNoCC.mkDerivation {
     runHook preInstall
     mkdir -p $out/libexec/nixod $out/bin
     cp -r nixod lib.sh commands probe-remote.sh $out/libexec/nixod/
+    cp -r ${docs} $out/libexec/nixod/docs
     chmod +x $out/libexec/nixod/nixod $out/libexec/nixod/commands/*.sh
     patchShebangs $out/libexec/nixod/nixod $out/libexec/nixod/commands
     # The system's own nix comes first (it talks to the local daemon).

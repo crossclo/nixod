@@ -56,7 +56,8 @@ modules/
                           # shipped here: they live in the user's private instance, under home/
     theme/colors.nix      # default palette, overridable
 pkgs/nixod/               # the CLI (shell, writeShellApplication)
-docs/agent/               # playbooks the agent follows (init, join, review, change, remove)
+docs/agent/               # playbooks the agent follows (init, describe-host, hub, join, review,
+                          # change, remove, recover), shipped in the CLI: `nixod doc <name>`
 template/                 # what `nix flake init -t` copies (= instance skeleton)
 tests/                    # nixosTest VM tests (sync, update, signatures)
 ```
@@ -207,8 +208,13 @@ by hand on a machine.
 | `nixod approve <pr\|branch>` | trusted host | refuses unless the request is exactly the reviewed commit; `git merge --no-ff -S` locally, push. GitHub marks the PR merged |
 | `nixod check` | hosts (timer) | fetch + verify; notifies if a verified update is waiting |
 | `nixod update` | hosts | verify, fast-forward, `nixos-rebuild switch` |
-| `nixod remove <name>` | trusted host | removes the entry, signed commit, push |
+| `nixod remove <name>` | trusted host | after the entry is deleted from `network.nix`: deletes `hosts/<name>/`, builds the hub, signed commit, push |
 | `nixod status` | any | running commit vs `main`, Syncthing peers, last hub update |
+| `nixod doc [<name>]` | any | prints a playbook of this nixod version (no name: lists them) |
+
+Before a machine runs nixod (init, join, recover), the CLI comes from the
+instance itself: `nix run .#nixod -- <command>` (the instance flake exposes
+`packages.nixod` from the framework version it pins).
 | `nixod trust-once <pubkey>` | hub, **provider console only** | trusts this key for exactly one verified update, then clears it |
 
 ---
@@ -342,8 +348,9 @@ clone.
 
 `AGENTS.md` (instance) is short. It contains:
 - **what nixod is** (a link to the README) and **mode detection** (init / join /
-  review / change / remove), each pointing to a playbook in the framework's
-  `docs/agent/`;
+  review / change / remove / recover), each pointing to a playbook in the
+  framework's `docs/agent/`, read with `nixod doc <name>` (the version the
+  instance pins);
 - **invariants (never broken, whatever the case):**
   - never commit a private key;
   - get explicit confirmation before anything that wipes a disk, and **never
@@ -352,6 +359,8 @@ clone.
   - change machines through the repo, never by hand on the machine (the
     provider-console recovery is the only exception);
   - build before asking the user to switch.
+  - secrets stay out of the chat: passwords and passphrases are typed by the
+    user in their own terminal, never by the agent.
 - **default ways of working (adaptable):**
   - use the `nixod` CLI for identities, installs, signing and merging;
   - if a case doesn't fit, read the script, run or adapt its steps by hand, and

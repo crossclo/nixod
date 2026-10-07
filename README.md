@@ -8,8 +8,9 @@ fill in the template by hand: your AI agent reads `AGENTS.md`, looks at your
 hardware and your existing config, and writes your setup for you. All you do is
 answer a few questions and rebuild.
 
-> Status: design phase. This README describes how the system works, not what is
-> built yet.
+> **Status: test phase.** Everything described here is built and passes its
+> tests in virtual machines, but it has not run on real machines yet. Don't use
+> it on machines or a VPS whose data you can't afford to lose.
 
 ---
 

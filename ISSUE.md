@@ -15,8 +15,8 @@ Sources:
 
 ## Fixed (2026-10-10)
 
-What the walkthrough found, and how it was fixed. The non-VM checks pass;
-the VM tests were updated but **not run** (see T0).
+What the walkthrough found, and how it was fixed. Every check passes, the
+VM tests included (CI run 38084260057, one runner per VM test).
 
 | | Issue | Fix |
 |---|---|---|
@@ -46,15 +46,6 @@ the VM tests were updated but **not run** (see T0).
 ---
 
 ## Still open
-
-### T0. The VM tests weren't run after these fixes
-
-`vm-sync`, `vm-update`, `vm-join` and `vm-install-hub` were changed (keys at
-`~/.ssh/nixod_ed25519`, a staged console password, Syncthing discovery) and
-still evaluate, but haven't run. Run them before anything else:
-`gh workflow run check -R crossclo/nixod`, or `nix flake check` on a machine
-with KVM. To watch in `vm-install-hub`: the console password must be in
-`/etc/shadow` after the install (set from the staged file at user creation).
 
 ### P3. Does Claude Code's `!` give a terminal?
 

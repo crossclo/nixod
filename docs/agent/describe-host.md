@@ -34,12 +34,19 @@ no hardware profiles: you write what this machine needs.
   `services.upower.enable`, touchpad in `services.libinput.touchpad`, and
   `services.thermald.enable` on Intel only (`grep -m1 vendor_id /proc/cpuinfo`).
   The i3 bar shows the battery by itself.
-- **Another OS** (`lsblk -f`, `efibootmgr`): keep the existing boot loader
-  setup from `/etc/nixos/configuration.nix`. For Windows on another EFI
-  partition, a GRUB entry that chainloads it by the partition's UUID is the
-  reliable way (os-prober misses it when rebuilding from a chroot).
-- **Data disks**: mount by UUID with `nofail`, so a missing disk doesn't block
-  the boot.
+- **Another OS** (`lsblk -f`, `efibootmgr`): keep the boot loader the machine
+  already uses, with its setup from `/etc/nixos/configuration.nix`.
+  systemd-boot usually lists Windows by itself when it is on the same EFI
+  partition: nothing to add. With GRUB and Windows on another EFI partition,
+  a GRUB entry that chainloads it by the partition's UUID is the reliable way
+  (os-prober misses it when rebuilding from a chroot).
+- **Data disks**: the generated hardware configuration already mounts them.
+  Don't edit that file: add `nofail` in `hosts/<name>/default.nix`, so a
+  missing disk doesn't block the boot:
+  `fileSystems."/mnt/data".options = [ "nofail" ];`
+- **Disk encryption** (`lsblk -f`: a `crypto_LUKS` partition): note it. It
+  matters for this machine's nixod key, which has no passphrase at first:
+  tell the user at the end of init or join.
 - **No swap partition**: `nixod.profiles.zram.enable = true;` (plus a
   `swapDevices` swapfile when there is little RAM).
 
@@ -50,6 +57,14 @@ Show the user what you found and what you plan to write; wait for their yes.
 From `/etc/nixos/configuration.nix`, bring over what isn't hardware or already
 covered by nixod (services, packages, settings). Keep `system.stateVersion`
 exactly as it is there.
+
+**Not the old desktop**, when `desktop-i3` is on: leave out its display
+manager (`services.displayManager.gdm`, `sddm`, `services.xserver.displayManager.lightdm`)
+and its desktop (`services.desktopManager.gnome`, `plasma6`, ...). desktop-i3
+starts greetd, and refuses to build next to another display manager. Ask the
+user first: if they'd rather keep their old desktop, leave `desktop-i3` off
+and bring the old desktop over instead. (GNOME stays available from the
+greetd menu by default: `nixod.profiles.desktop-i3.gnomeFallback`.)
 
 nixod's profiles (`nixod.profiles.<name>.enable`): `desktop-i3`, `audio`,
 `networking`, `zram`, `security-hardening`. A desktop host usually enables all
@@ -73,7 +88,10 @@ of them:
 ## 4. Dotfiles
 
 Look locally (`~/.config`, `~/.zshrc`, `~/.gitconfig`, an existing Home Manager
-config) and on GitHub (`gh repo list`, repos that look like dotfiles). Port
+config) and on GitHub (`nix run nixpkgs#gh -- repo list`, repos that look like
+dotfiles). An existing Home Manager config: keep its `home.stateVersion` (in
+`home/default.nix`, instead of the template's), it changes how some files are
+managed. Port
 them to Home Manager options where they exist, else `xdg.configFile` /
 `home.file`, into `home/` (every host) or `hosts/<name>/home.nix` (this one).
 
@@ -85,6 +103,6 @@ from nixod's defaults.
 
 ## 5. Folders
 
-Ask which folders this machine syncs, and where. List them in its
-`network.nix` entry (`folders = { docs = "/home/<user>/sync/docs"; };`) and
-make sure each one exists in `folders`.
+Ask which folders this machine syncs, and where. They go in the machine's
+`network.nix` entry, written right after this (init step 3, join step 2),
+together with its identity.

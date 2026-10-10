@@ -2,9 +2,11 @@
 # nixod review <pr number | branch>   (on a trusted host, in its clone)
 #
 # Shows what a join request changes, without touching the working tree:
-# the machines it adds (or removes), the network.nix diff, and, loudly, any
-# file outside network.nix and the new host's hosts/<name>/ (a join request
-# has no reason to change what other machines run). Then builds the new
+# the machines it adds (or removes) and the folders each new one gets, the
+# network.nix diff, and, loudly, any change to other machines' entries or to
+# folder options in network.nix, and any file outside network.nix and the
+# new host's hosts/<name>/ (a join request has no reason to change what
+# other machines run). Then builds the new
 # host and the hub, and records the reviewed commit: `nixod approve` merges
 # exactly that commit, nothing pushed after it.
 set -euo pipefail
@@ -44,22 +46,39 @@ base=refs/remotes/origin/$NIXOD_BRANCH
 fork=$(git merge-base "$base" "$head") || die "the request has no history in common with $NIXOD_BRANCH"
 info "request: $head"
 
-machines_at() { # machines_at <commit>: machine names in its network.nix
+network_at() { # network_at <commit>: its network.nix, as JSON
   local f
   f=$(mktemp)
   git show "$1:network.nix" >"$f"
-  nix_ eval --json --file "$f" machines --apply builtins.attrNames | jq -r '.[]'
+  nix_ eval --json --file "$f"
   rm -f "$f"
 }
-before=$(machines_at "$fork" | sort)
-after=$(machines_at "$head" | sort)
+net_before=$(network_at "$fork")
+net_after=$(network_at "$head")
+before=$(jq -r '.machines | keys[]' <<<"$net_before" | sort)
+after=$(jq -r '.machines | keys[]' <<<"$net_after" | sort)
 mapfile -t added < <(comm -13 <(printf '%s\n' "$before") <(printf '%s\n' "$after") | grep . || true)
 mapfile -t removed < <(comm -23 <(printf '%s\n' "$before") <(printf '%s\n' "$after") | grep . || true)
 
 step "Machines"
-for m in "${added[@]}"; do info "+ $m (new)"; done
+for m in "${added[@]}"; do
+  info "+ $m (new), gets these folders:"
+  jq -r --arg m "$m" '.machines[$m].folders // {} | to_entries[] | "      \(.key) at \(.value)"' <<<"$net_after" >&2
+done
 for m in "${removed[@]}"; do info "- $m (REMOVED by this request)"; done
 [[ ${#added[@]} -gt 0 ]] || warn "this request adds no machine"
+
+# Entries that exist on both sides and changed, and changed folder options:
+# they change what other machines run or share.
+mapfile -t changed < <(jq -rn --argjson a "$net_before" --argjson b "$net_after" '
+  ($a.folders // {}) as $fa | ($b.folders // {}) as $fb
+  | ($a.machines | keys[] | select($b.machines[.] != null and $a.machines[.] != $b.machines[.]) | "machines.\(.)"),
+    ($fa | keys[] | select($fa[.] != $fb[.]) | "folders.\(.)")')
+if [[ ${#changed[@]} -gt 0 ]]; then
+  step "WARNING: this request changes existing entries in network.nix"
+  warn "a join request only adds its own machine (and new folders); these change what others run or share:"
+  printf '      %s\n' "${changed[@]}" >&2
+fi
 
 step "Files"
 git --no-pager diff --stat "$fork" "$head" >&2

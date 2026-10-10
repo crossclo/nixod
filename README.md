@@ -75,6 +75,17 @@ Every machine checks the signature before applying anything. So if someone takes
 over your GitHub account, they still cannot push a config to your machines. Only
 your machines can approve changes.
 
+Each machine signs with its own key, made for nixod and never shared: removing a
+machine from the list revokes it. A machine that was off for a while follows the
+list as it changed in between: it accepts changes from machines that joined
+since, and refuses those from machines removed since.
+
+A signed change vouches for everything under it, including a join request's
+unsigned commits. So **the review is what protects you**: whatever a trusted
+machine approves, every machine applies. `nixod review` shows what a join
+request adds, the folders the new machine gets, and flags anything else it
+changes; read it before saying "approve".
+
 ---
 
 ## Flow 1: Setting up your network
@@ -84,8 +95,8 @@ You do this once, from your first machine. That machine must already run NixOS.
 **You need:** a machine running NixOS, a fresh VPS from any provider (root SSH
 access to its stock Linux), and a GitHub account.
 
-1. **Create your repo.** Make a **private** copy of this template on GitHub and
-   clone it onto your first machine.
+1. **Create your repo.** Make a **private** copy of this template on GitHub, log
+   in with `gh auth login` and clone it onto your first machine.
 2. **Start your agent** in the repo and tell it: *"This is the setup of my nixod
    network."* It reads `AGENTS.md` and follows the setup steps.
 3. **The agent describes your first machine:**
@@ -97,20 +108,24 @@ access to its stock Linux), and a GitHub account.
      or in your GitHub repos) and brings them into the template; anything it
      doesn't find comes from the template defaults,
    - asks you the basics: user name, time zone, keyboard, which folders to sync.
-4. **The agent looks at the VPS before wiping it.** It logs into the provider's
-   stock system and notes the network settings, the disk, and how it boots. It
-   then starts the NixOS installer in the VPS's memory, without touching the
-   disk yet, to generate the VPS's hardware configuration.
-5. **The agent creates the identities in advance,** for both your machine and the
+4. **The agent creates the identities in advance,** for both your machine and the
    VPS: the Syncthing IDs and the SSH keys. Both machines go into `network.nix`
    already knowing each other, so you don't have to come back and fix anything.
+   You type the VPS's console password yourself, in a terminal; only its hash
+   goes to the VPS, never to the repo.
+5. **The agent looks at the VPS before wiping it.** You let your machine's key
+   log into it once; the agent then reads the provider's stock system: network
+   settings, disk, how it boots. It starts the NixOS installer in the VPS's
+   memory, without touching the disk yet, to generate the VPS's hardware
+   configuration.
 6. **The agent commits** the setup, signed with your machine's key.
-7. **You rebuild your first machine.** Your desktop, dotfiles and folders are now
-   in place. Syncthing waits until the VPS comes up.
-8. **The agent installs the VPS** with nixos-anywhere: the provider's OS is
-   replaced by NixOS over SSH, using the identity prepared in step 5.
-9. **Done.** Your machine connects to the VPS and the sync starts. The VPS private
-   keys are deleted from your machine; nothing secret is ever stored in the repo.
+7. **The agent installs the VPS** with nixos-anywhere: the provider's OS is
+   replaced by NixOS over SSH, using the identity prepared in step 4.
+8. **You switch your first machine and reboot.** Your desktop, dotfiles and
+   folders are now in place, and the sync starts.
+9. **Done.** The VPS private keys are deleted from your machine; nothing secret
+   is stored in the repo. Your machine's key has no passphrase at first (the
+   agent signs with it); add one if you like, and unlock it once per session.
 
 ---
 
@@ -144,8 +159,8 @@ machine** and one **trusted machine** (any machine already in your network).
 
 8. **The VPS applies it within minutes.** It fetches the repo, checks the
    signature, and rebuilds. It now accepts the new machine.
-9. **You rebuild the new machine.** It connects to the VPS and your folders start
-   arriving.
+9. **You switch the new machine and reboot.** It connects to the VPS and your
+   folders start arriving.
 10. **Your other machines catch up on their own** at their next scheduled update.
     Until then they keep syncing through the VPS, so nothing is missing.
 

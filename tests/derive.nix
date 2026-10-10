@@ -189,6 +189,35 @@ let
       expected = [ ];
     };
 
+    # The same key on two machines (copied ~/.ssh), comments aside.
+    shared-user-key = {
+      actual = errors {
+        machines = {
+          hub = {
+            role = "hub";
+            address = "203.0.113.1";
+            syncthingId = id "AAAAAAA";
+            sshHostKey = key "A";
+            deployKey = key "B";
+          };
+          tower = {
+            role = "host";
+            syncthingId = id "CCCCCCC";
+            userKey = key "D" + " alice@tower";
+          };
+          laptop = {
+            role = "host";
+            syncthingId = id "EEEEEEE";
+            userKey = key "D" + " alice@laptop";
+          };
+        };
+        folders = { };
+      };
+      expected = [
+        "userKey ${key "D"} is used by more than one machine: each machine needs its own (nixod identity host), or removing one wouldn't revoke it"
+      ];
+    };
+
     invalid-network = {
       actual = errors {
         machines = {

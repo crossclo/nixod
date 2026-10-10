@@ -1,0 +1,4 @@
+# Links left by `nix build`: they change at every build and would leave the
+# tree dirty (nixod update and install-hub refuse a dirty tree).
+result
+result-*

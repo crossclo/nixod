@@ -91,6 +91,15 @@ in
       )
       "template/settings.nix has ${toString (lib.length fillMarkers)} NIXOD:FILL markers, but ${toString (lib.length missingInTemplate)} settings are reported missing";
 
+  # The template ignores `nix build`'s result links: a committed one makes
+  # the tree dirty at every build.
+  template-gitignore = check "template-gitignore" (
+    let
+      lines = lib.splitString "\n" (builtins.readFile ../template/.gitignore);
+    in
+    lib.elem "result" lines && lib.elem "result-*" lines
+  ) "template/.gitignore must ignore result and result-*";
+
   # An unfilled template fails `nix flake check`, even with no machine yet.
   template-unfilled-fails = check "template-unfilled-fails" (
     template.nixosConfigurations == { }

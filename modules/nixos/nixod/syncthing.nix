@@ -29,8 +29,18 @@ in
       }
 
       (defaults {
-        # No usage-reporting prompt.
-        services.syncthing.settings.options.urAccepted = -1;
+        services.syncthing.settings.options = {
+          # No usage-reporting prompt.
+          urAccepted = -1;
+          # Hosts reach the hub at its fixed address, and the hub keeps
+          # everything, so nothing needs Syncthing's public servers: global
+          # discovery would announce every device's IP to them, and relays
+          # would carry its traffic. Hosts on the same LAN still find each
+          # other (local discovery).
+          globalAnnounceEnabled = false;
+          relaysEnabled = false;
+          localAnnounceEnabled = true;
+        };
       })
 
       (lib.mkIf (cfg.role == "host" && user != null) {

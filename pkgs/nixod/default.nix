@@ -15,6 +15,7 @@
   jq,
   curl,
   libnotify,
+  mkpasswd,
   git,
   gh,
   nix,
@@ -73,6 +74,7 @@ stdenvNoCC.mkDerivation {
           jq
           curl
           libnotify
+          mkpasswd
           git
           gh
           nixos-anywhere

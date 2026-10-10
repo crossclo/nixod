@@ -9,6 +9,7 @@
 
 let
   xkb = osConfig.nixod.settings.keyboard.xkb;
+  variant = osConfig.nixod.settings.keyboard.xkbVariant;
   defaults = import ../../../lib/defaults.nix { inherit lib; };
 in
 {
@@ -54,7 +55,7 @@ in
         sources = [
           (config.lib.gvariant.mkTuple [
             "xkb"
-            xkb
+            (xkb + lib.optionalString (variant != "") "+${variant}")
           ])
         ];
       };

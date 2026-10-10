@@ -19,11 +19,21 @@ let
 
   # The hub's identity, made by the CLI at build time (test keys only: they
   # live in the store, never in the repo).
-  identity = pkgs.runCommand "nixod-test-hub-identity" { nativeBuildInputs = [ nixod ]; } ''
-    export HOME=$TMPDIR
-    mkdir -p $out
-    nixod identity hub hub --staging $out/staging >$out/public.nix
-  '';
+  identity =
+    pkgs.runCommand "nixod-test-hub-identity"
+      {
+        nativeBuildInputs = [
+          nixod
+          pkgs.mkpasswd
+        ];
+      }
+      ''
+        export HOME=$TMPDIR
+        mkdir -p $out
+        nixod identity hub hub --staging $out/staging >$out/public.nix
+        # What `--console-password` stages (it needs a terminal to ask).
+        printf test | mkpasswd --method=yescrypt --stdin >$out/staging/var/lib/nixod/console-password
+      '';
   public = import "${identity}/public.nix";
 
   network = {
@@ -181,6 +191,8 @@ pkgs.testers.runNixOSTest {
             "test $(stat -c %U:%a /var/lib/syncthing/.config/syncthing/key.pem) = syncthing:600",
             "test $(stat -c %U:%a /etc/ssh/ssh_host_ed25519_key) = root:600",
             "test $(stat -c %U:%a /var/lib/nixod/deploy_key) = root:600",
+            "test $(stat -c %U:%a /var/lib/nixod/console-password) = root:600",
+            "grep -q '^alice:[$]y[$]' /etc/shadow",
             "test $(stat -c %a /etc) = 755",
             "test $(stat -c %a /var/lib) = 755",
         )

@@ -1,13 +1,32 @@
 name: check
 
-# The framework's own tests (VM tests included) run on demand only:
-#   gh workflow run check -R crossclo/nixod
-# Instances get their own workflow from template/ (it checks the user's config).
+# The framework's own tests. Instances get their own workflow from template/
+# (it checks the user's config).
+#   - every push and pull request: every check except the VM tests (vm-*):
+#     evaluation, settings and network validation, the CLI, update
+#     verification, the docs;
+#   - on demand, everything, VM tests included:
+#       gh workflow run check -R crossclo/nixod
 on:
+  push:
+  pull_request:
   workflow_dispatch:
 
 jobs:
-  flake-check:
+  quick:
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+      - name: checks without the VM tests
+        run: |
+          checks=$(nix eval --json .#checks.x86_64-linux --apply builtins.attrNames \
+            | jq -r '.[] | select(startswith("vm-") | not) | ".#checks.x86_64-linux.\(.)"')
+          nix build --no-link -L --show-trace $checks
+
+  full:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

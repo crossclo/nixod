@@ -30,10 +30,6 @@ let
       "repo"
       "url"
     ]
-    [
-      "hub"
-      "hashedPassword"
-    ]
   ];
 in
 rec {

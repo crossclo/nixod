@@ -28,6 +28,21 @@ let
     exec ${pkgs.xinit}/bin/startx /home/${user}/.xsession
   '';
 
+  # Display managers that would start next to greetd (typically ported from
+  # the old /etc/nixos/configuration.nix).
+  dm = config.services.displayManager;
+  otherDisplayManagers = lib.filter (n: n != null) [
+    (if dm.gdm.enable then "services.displayManager.gdm" else null)
+    (if dm.sddm.enable then "services.displayManager.sddm" else null)
+    (if dm.ly.enable then "services.displayManager.ly" else null)
+    (
+      if config.services.xserver.displayManager.lightdm.enable then
+        "services.xserver.displayManager.lightdm"
+      else
+        null
+    )
+  ];
+
   # Sessions offered by tuigreet:
   #   - GNOME (Wayland): links to the official sessions from the modules.
   #   - i3 (X11):        a .desktop pointing at boot-i3.
@@ -73,6 +88,19 @@ in
 
   config = lib.mkIf cfg.enable (
     lib.mkMerge [
+      {
+        assertions = [
+          {
+            assertion = otherDisplayManagers == [ ];
+            message = ''
+              nixod.profiles.desktop-i3 uses greetd as its display manager, but
+              ${lib.concatStringsSep ", " otherDisplayManagers} is enabled too (ported from the old
+              configuration?). Remove it, or turn desktop-i3 off to keep the old desktop.
+            '';
+          }
+        ];
+      }
+
       # Additive: merges with the instance's own lists.
       {
         boot.kernelParams = [
@@ -83,6 +111,7 @@ in
         ];
 
         services.xserver.xkb.layout = lib.mkIf (s.keyboard.xkb != null) s.keyboard.xkb;
+        services.xserver.xkb.variant = lib.mkIf (s.keyboard.xkbVariant != "") s.keyboard.xkbVariant;
 
         services.xserver.windowManager.i3.extraPackages = with pkgs; [
           feh # wallpaper

@@ -5,9 +5,12 @@
 #   hardware: boots the NixOS installer in the VPS's RAM (kexec; the disk is
 #             not touched, the provider's OS comes back at the next reboot)
 #             and writes hosts/<name>/hardware-configuration.nix.
-#   install:  checks the staged identity matches network.nix, adds the deploy
-#             key on GitHub, builds the hub, WIPES THE DISK (disko), installs
-#             with the staged identity, reboots, then deletes the staging dir.
+#   install:  checks the staged identity matches network.nix (Syncthing ID,
+#             SSH host key, deploy key) and the console password is staged,
+#             adds the deploy key on GitHub, builds the hub, WIPES THE DISK
+#             (disko), installs with the staged identity, reboots, puts the
+#             hub's host key in ~/.ssh/known_hosts in place of the provider
+#             OS's, and deletes the staging dir.
 # Extra nixos-anywhere flags go after `--` (they come last, so they win).
 set -euo pipefail
 # shellcheck source=../lib.sh
@@ -19,6 +22,8 @@ Usage: nixod install-hub <name> <user@ip> --stage hardware|install [options]
                          [-- <extra nixos-anywhere flags>]
 
   --staging DIR        the hub's identity (default $XDG_RUNTIME_DIR/nixod/hub-<name>)
+  --key PATH           SSH key that logs into the VPS as root (default
+                       ~/.ssh/nixod_ed25519, when it exists)
   --flake DIR          the instance repo (default .)
   --store-paths D S    already built disko script and system: skip the build
   --no-deploy-key      don't add the deploy key on GitHub
@@ -31,6 +36,7 @@ name=
 target=
 stage=
 staging=
+key=$HOME/.ssh/nixod_ed25519
 flake=.
 disko_script=
 system=
@@ -40,6 +46,7 @@ while [[ $# -gt 0 ]]; do
   case $1 in
   --stage) stage=$2 && shift ;;
   --staging) staging=$2 && shift ;;
+  --key) key=$2 && shift ;;
   --flake) flake=$2 && shift ;;
   --store-paths) disko_script=$2 && system=$3 && shift 2 ;;
   --no-deploy-key) deploy_key_on_github=0 ;;
@@ -70,6 +77,10 @@ done
 }
 staging=$(realpath -m "${staging:-${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/nixod/hub-$name}")
 cd "$flake"
+# nixos-anywhere logs in with this machine's nixod key (the user authorized it
+# on the VPS); without it, ssh's defaults and agent.
+key_opts=()
+[[ -e $key ]] && key_opts=(-i "$key")
 
 stage_hardware() {
   local hw=hosts/$name/hardware-configuration.nix
@@ -78,11 +89,14 @@ stage_hardware() {
 
   step "Boot the NixOS installer on $target (kexec) and generate $hw"
   run nixos-anywhere \
+    "${key_opts[@]}" \
     --flake ".#$name" \
     --phases kexec \
     --generate-hardware-config nixos-generate-config "$hw" \
     "${extra[@]}" \
     "$target"
+  # The flake only sees files git knows about.
+  run git add -- "$hw"
 
   step "Next"
   info "Review $hw, build both machines, commit (signed) and push, then:"
@@ -92,18 +106,33 @@ stage_hardware() {
 stage_install() {
   local st=$staging/var/lib/syncthing/.config/syncthing
   local deploy_pub=$staging/var/lib/nixod/deploy_key.pub
-  local staged expected out
+  local password=$staging/var/lib/nixod/console-password
+  local staged expected out owner field
 
   step "Check the staged identity ($staging)"
   for f in "$st/cert.pem" "$st/key.pem" "$staging/etc/ssh/ssh_host_ed25519_key" "$staging/var/lib/nixod/deploy_key"; do
-    [[ -e $f || $DRY_RUN == 1 ]] || die "missing $f: run 'nixod identity hub $name' first (with the same --staging)"
+    [[ -e $f || $DRY_RUN == 1 ]] || die "missing $f. The staged identity is gone (it lives in RAM: a logout or a reboot deletes it).
+Make a new one and publish it before installing:
+  1. nixod identity hub $name                      (new keys; same --staging if you used one)
+  2. the user, in a terminal: nixod identity hub $name --console-password
+  3. put the printed syncthingId, sshHostKey and deployKey in machines.$name in network.nix
+  4. build, commit (signed) and push
+  5. run this again"
   done
+  [[ -s $password || $DRY_RUN == 1 ]] ||
+    die "no console password staged: the user runs, in a terminal: nixod identity hub $name --console-password"
   if [[ $DRY_RUN == 0 && -e network.nix ]]; then
     staged=$(syncthing_id "$st")
     expected=$(nix_ eval --raw --file network.nix "machines.$name.syncthingId")
     [[ $staged == "$expected" ]] ||
       die "the staged Syncthing ID ($staged) is not machines.$name.syncthingId in network.nix ($expected)"
-    info "Syncthing ID matches network.nix: $staged"
+    for field in sshHostKey:etc/ssh/ssh_host_ed25519_key.pub deployKey:var/lib/nixod/deploy_key.pub; do
+      staged=$(cut -d' ' -f1,2 "$staging/${field#*:}")
+      expected=$(nix_ eval --raw --file network.nix "machines.$name.${field%%:*}" | cut -d' ' -f1,2)
+      [[ $staged == "$expected" ]] ||
+        die "the staged ${field%%:*} is not machines.$name.${field%%:*} in network.nix: the staged identity and network.nix don't match"
+    done
+    info "Syncthing ID, SSH host key and deploy key match network.nix"
   fi
 
   step "Check the repo is committed (the hub runs a clean commit)"
@@ -132,7 +161,7 @@ stage_install() {
   step "Fix the staged files' permissions"
   run find "$staging" -type d -exec chmod 755 {} +
   run chmod 700 "$staging/var/lib/syncthing" "$staging/var/lib/syncthing/.config/syncthing" "$staging/var/lib/nixod"
-  run chmod 600 "$st/key.pem" "$staging/etc/ssh/ssh_host_ed25519_key" "$staging/var/lib/nixod/deploy_key"
+  run chmod 600 "$st/key.pem" "$staging/etc/ssh/ssh_host_ed25519_key" "$staging/var/lib/nixod/deploy_key" "$password"
   run chmod 644 "$st/cert.pem" "$staging/etc/ssh/ssh_host_ed25519_key.pub" "$deploy_pub"
 
   if [[ $deploy_key_on_github == 1 ]]; then
@@ -144,15 +173,39 @@ stage_install() {
     fi
   fi
 
+  step "The syncthing user and group on the hub (they own its identity)"
+  if [[ $DRY_RUN == 1 ]]; then
+    owner="<uid>:<gid>"
+  else
+    # shellcheck disable=SC2016 # Nix interpolation, not the shell's
+    owner=$(nix_ eval --raw ".#nixosConfigurations.$name.config.users" \
+      --apply 'u: "${toString u.users.syncthing.uid}:${toString u.groups.syncthing.gid}"' 2>/dev/null) || {
+      # No flake to read it from (--store-paths): NixOS's fixed IDs.
+      owner=237:237
+      warn "can't read the syncthing user's IDs from .#nixosConfigurations.$name: using NixOS's fixed $owner"
+    }
+  fi
+  info "$owner"
+
   step "Install (disko wipes the disk, then nixos-install, then reboot)"
-  # 237 is the syncthing user/group on NixOS (ids.uids.syncthing).
   run nixos-anywhere \
+    "${key_opts[@]}" \
     --store-paths "$disko_script" "$system" \
     --extra-files "$staging" \
-    --chown /var/lib/syncthing 237:237 \
+    --chown /var/lib/syncthing "$owner" \
     --phases kexec,disko,install,reboot \
     "${extra[@]}" \
     "$target"
+
+  step "Known hosts: ${target#*@} is the hub now (its key replaces the provider OS's)"
+  if [[ $DRY_RUN == 1 ]]; then
+    run ssh-keygen -R "${target#*@}"
+    run echo "${target#*@} <hub host key>" ">>" "$HOME/.ssh/known_hosts"
+  else
+    ssh-keygen -R "${target#*@}" >/dev/null 2>&1 || true
+    install -d -m 700 "$HOME/.ssh"
+    printf '%s %s\n' "${target#*@}" "$(cut -d' ' -f1,2 "$staging/etc/ssh/ssh_host_ed25519_key.pub")" >>"$HOME/.ssh/known_hosts"
+  fi
 
   step "Delete the staging dir (the hub's private keys now live only on the hub)"
   run rm -rf "$staging"

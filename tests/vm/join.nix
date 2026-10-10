@@ -25,7 +25,7 @@ let
       ''
         mkdir -p $out
         HOME=$TMPDIR nixod identity hub hub --staging $out/hub >$out/hub.nix
-        HOME=$out/laptop nixod identity host laptop --no-passphrase >$out/laptop.nix
+        HOME=$out/laptop nixod identity host laptop >$out/laptop.nix
         ssh-keygen -q -t ed25519 -N "" -C alice@tower -f $out/tower
         ssh-keygen -q -t ed25519 -N "" -C github -f $out/github
       '';
@@ -133,13 +133,18 @@ pkgs.testers.runNixOSTest {
         alice(m, "git config --global user.name alice && git config --global user.email alice@example.org"
                  " && git config --global init.defaultBranch main")
     # tower signs its commits (Home Manager's git profile does this on nixod hosts).
-    tower.succeed("install -m 600 -o alice -g users ${keys}/tower /home/alice/.ssh/id_ed25519")
+    tower.succeed(
+        "install -m 600 -o alice -g users ${keys}/tower /home/alice/.ssh/id_ed25519",
+        "install -m 600 -o alice -g users ${keys}/tower /home/alice/.ssh/nixod_ed25519",
+    )
     alice(tower, "git config --global gpg.format ssh && git config --global user.signingkey ~/.ssh/id_ed25519")
-    # laptop has the identity `nixod identity host laptop` made.
+    # laptop has the identity `nixod identity host laptop` made; the same key
+    # logs into the github VM.
     laptop.succeed(
         "cp -r --no-preserve=mode ${keys}/laptop/.ssh ${keys}/laptop/.config /home/alice/",
+        "cp /home/alice/.ssh/nixod_ed25519 /home/alice/.ssh/id_ed25519",
         "chown -R alice:users /home/alice/.ssh /home/alice/.config",
-        "chmod 600 /home/alice/.ssh/id_ed25519",
+        "chmod 600 /home/alice/.ssh/nixod_ed25519 /home/alice/.ssh/id_ed25519",
     )
 
     # The network as it is: hub + tower, pushed signed by tower.

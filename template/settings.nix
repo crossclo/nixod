@@ -14,6 +14,7 @@
   keyboard = {
     console = null; # NIXOD:FILL  console keymap, e.g. "fr" or "us"
     xkb = null; # NIXOD:FILL  X11 layout, e.g. "fr" or "us"
+    xkbVariant = ""; # layout variant, e.g. "oss" (fr), "nodeadkeys" (de), "intl" (us)
   };
 
   repo = {
@@ -22,6 +23,6 @@
     path = "~/nixod"; # where the clone lives on hosts
   };
 
-  # Console login on the hub (provider VNC/serial console, never SSH).
-  hub.hashedPassword = null; # NIXOD:FILL  mkpasswd -m sha-512
+  # The hub's console password is not here: its hash is put on the hub at
+  # install (`nixod identity hub <name> --console-password`), never in the repo.
 }

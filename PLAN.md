@@ -156,6 +156,9 @@ All of these are pure functions of `network.nix`, unit-tested with `nix eval`:
 | `/etc/nixod/allowed_signers` | all | one line per host `userKey` |
 
 `overrideDevices` / `overrideFolders` stay `true`. The introducer is removed.
+Global discovery and relays are off (hosts reach the hub at its fixed address,
+and the hub keeps everything); local discovery stays on, so hosts on the same
+LAN may talk directly.
 
 ### Profiles instead of hostname checks
 
@@ -199,12 +202,12 @@ by hand on a machine.
 
 | Command | Where | Does |
 |---|---|---|
-| `nixod identity host <name>` | new host | generates the Syncthing identity into `~/.config/syncthing` and the user SSH key if missing; prints the IDs |
-| `nixod identity hub <name>` | first host | generates the hub's Syncthing identity, SSH host key and deploy key in a staging dir (`$XDG_RUNTIME_DIR`, tmpfs); prints the public parts |
-| `nixod probe root@<ip>` | first host | reads the VPS's stock OS: interfaces, addresses, routes, DNS, disks, BIOS/UEFI. Prints JSON for the agent |
-| `nixod install-hub <name> root@<ip>` | first host | adds the deploy key on GitHub (`gh repo deploy-key add --read-only`), runs `nixos-anywhere --extra-files <staging> --chown …`, then wipes the staging dir |
-| `nixod join` | new host | branch `join/<name>`, commit, push, `gh pr create` (`--no-pr`: push only) |
-| `nixod review <pr\|branch>` | trusted host | fetches the request, shows the machines added/removed, the `network.nix` diff and the files touched, and warns (with the full diff) about any file outside `network.nix` and the new host's `hosts/<name>/`; builds the new host and the hub; records the reviewed commit |
+| `nixod identity host <name>` | new host | generates the Syncthing identity into `~/.config/syncthing` and this machine's own SSH key `~/.ssh/nixod_ed25519` if missing (no passphrase unless `--passphrase`: the agent signs with it); prints the IDs |
+| `nixod identity hub <name>` | first host | generates the hub's Syncthing identity, SSH host key and deploy key in a staging dir (`$XDG_RUNTIME_DIR`, tmpfs); prints the public parts. `--console-password` (the user, in a terminal) stages the yescrypt hash of the hub's console password |
+| `nixod probe root@<ip>` | first host | reads the VPS's stock OS: interfaces, addresses, routes, DNS, disks, memory, arch, BIOS/UEFI. Prints JSON for the agent |
+| `nixod install-hub <name> root@<ip>` | first host | checks the staged Syncthing ID, host key and deploy key match `network.nix` and the console password is staged; adds the deploy key on GitHub (`gh repo deploy-key add --read-only`), runs `nixos-anywhere --extra-files <staging> --chown …`, puts the hub's host key in `known_hosts`, then wipes the staging dir |
+| `nixod join` | new host | checks the clone is at `settings.repo.path`; branch `join/<name>`, commit, push, `gh pr create` (`--no-pr`: push only) |
+| `nixod review <pr\|branch>` | trusted host | fetches the request, shows the machines added/removed and the folders each new one gets, the `network.nix` diff and the files touched; warns about changes to other machines' entries or folder options, and (with the full diff) about any file outside `network.nix` and the new host's `hosts/<name>/`; builds the new host and the hub; records the reviewed commit |
 | `nixod approve <pr\|branch>` | trusted host | refuses unless the request is exactly the reviewed commit; `git merge --no-ff -S` locally, push. GitHub marks the PR merged |
 | `nixod check` | hosts (timer) | fetch + verify; notifies if a verified update is waiting |
 | `nixod update` | hosts | verify, fast-forward, `nixos-rebuild switch` |
@@ -232,16 +235,32 @@ new = origin/<branch> after fetch
 
 1. new == cur                       → nothing to do
 2. git merge-base --is-ancestor cur new   else REJECT (blocks history rewrites / rollback to an old signed commit)
-3. git verify-commit new  with gpg.ssh.allowedSignersFile = /etc/nixod/allowed_signers
-                                    else REJECT
+3. trusted = /etc/nixod/allowed_signers (+ the trust-once key, on the hub)
+   for c in cur..new (ancestry path, oldest first), new excluded:
+     if c changes network.nix (vs the last trusted point) and
+        git verify-commit c with trusted:
+       trusted = the hosts' userKeys in network.nix at c
+4. git verify-commit new  with trusted   else REJECT
 ```
 
-- The allowed-signers file comes from the **running** system, never from the
-  incoming commit. A commit can't vouch for itself by adding its own key.
+- The trust starts from the **running** system, never from the incoming
+  commit. A commit can't vouch for itself by adding its own key: its
+  network.nix only counts for the commits after it, once it is itself signed
+  by a key trusted before it.
+- Trust follows the history, so a machine that is behind (a laptop off for
+  weeks, or the hub when two commits land within one timer period) accepts a
+  commit signed by a host added since, and refuses one signed by a host
+  removed since. A network.nix that doesn't evaluate on its own leaves the
+  trust as it was.
 - Only the **tip** has to be signed. A signed merge from a trusted machine vouches
   for everything under it, including the join PR's unsigned commits.
 - Commits are signed with SSH keys. Home Manager sets
-  `programs.git.signing = { format = "ssh"; key = <userKey>; signByDefault = true; }`.
+  `programs.git.signing = { format = "ssh"; key = "~/.ssh/nixod_ed25519"; signByDefault = true; }`.
+  Each machine has its own key, made by `nixod identity host` and never
+  shared: `network.nix` refuses a `userKey` used twice, so removing a machine
+  always revokes its key. It has no passphrase at first, so the agent can
+  sign; the user may add one (`ssh-keygen -p`) and load it into the
+  ssh-agent once per session.
 
 ### Hub: automatic (`update-hub.nix`)
 
@@ -270,9 +289,13 @@ the hub is never the answer:** disko wipes the disk, and at that moment the hub
 holds the only copy of the data.
 
 **The provider console.**
-- The hub's console password (`hashedPassword` for the user) is **required at
-  init**. This is the provider VNC/serial console, never SSH, where password
-  login stays disabled.
+- The hub's console password is **required at init**. This is the provider
+  VNC/serial console, never SSH, where password login stays disabled. It is
+  not in the repo: the user types it (`nixod identity hub --console-password`),
+  its yescrypt hash is staged with the hub's keys and installed as
+  `/var/lib/nixod/console-password` (`hashedPasswordFile`). Users are mutable,
+  so it is read when the user is created; it is changed with `passwd` on the
+  hub.
 - The new machine is described and gets its identity, as in a join, and its
   entry is committed (signed with its own key).
 - On the console: `nixod trust-once <new host userKey>` writes
@@ -302,27 +325,39 @@ clone.
 
 ### Init (first host + hub)
 
+The steps that can end the agent's session (logout, reboot) come last, and an
+interrupted init can be resumed from what the repo and the machine show
+(`init` playbook, "Resuming").
+
+0. **User:** `gh auth login` (HTTPS).
 1. The agent detects **init mode**: `network.nix` has no machines.
-2. Fills `settings.nix` (asks the user), including the hub console password
-   (stored as a hash).
+2. Fills `settings.nix` (asks the user), `repo.path` included; sets the git
+   identity for the repo.
 3. Describes the host (see §6) → `hosts/<name>/`.
 4. `nixod identity host <name>`, then adds the host to `network.nix`.
-5. `nixod probe root@<ip>` → writes `hosts/<hub>/` (static network or DHCP,
+5. **User:** accepts the VPS's host key (checked against the provider's
+   panel) and authorizes this machine's key on it (`ssh-copy-id`).
+6. `nixod probe root@<ip>` → writes `hosts/<hub>/` (static network or DHCP,
    `disko.nix` with the right disk, BIOS/UEFI boot loader).
-6. `nixod identity hub <hub>`, then adds the hub to `network.nix`.
-7. **Hub hardware configuration**, `nixod install-hub --stage hardware`
+7. `nixod identity hub <hub>`, then **the user** stages the console password
+   (`--console-password`); the agent adds the hub to `network.nix`. From here
+   to the hub install, no logout or reboot: the staged keys are in RAM.
+8. **Hub hardware configuration**, `nixod install-hub --stage hardware`
    (confirm first: the provider OS is replaced in RAM until the next reboot; the
    disk is not touched yet). nixos-anywhere boots its installer through kexec,
    then runs `nixos-generate-config --no-filesystems` there (disko declares the
-   file systems) → `hosts/<hub>/hardware-configuration.nix`.
-8. `nix flake check`, build both configs, signed commit, push. The hub is
+   file systems) → `hosts/<hub>/hardware-configuration.nix`, added to git.
+9. `nix flake check`, build both configs, signed commit, push. The hub is
    installed from this clean commit, so it knows which revision it runs.
-9. **User:** `sudo nixos-rebuild switch --flake .#<name>`.
 10. **Asks the user to confirm before wiping the VPS disk**, then
     `nixod install-hub --stage install` (disko + install + reboot).
-11. `nixod status` → the hub is up and Syncthing is connected.
-12. The agent makes sure the user has kept the hub's console password and access
-    to the provider account: with every host lost, they are the way back in.
+11. **User:** `sudo nixos-rebuild boot --flake .#<name>`, then reboot (the
+    display manager and the desktop change: the running session wouldn't
+    survive a switch).
+12. After the reboot, a new agent session: `nixod status` → the hub is up and
+    Syncthing is connected; offers a passphrase for the key; makes sure the
+    user has kept the hub's console password and access to the provider
+    account: with every host lost, they are the way back in.
 
 > Checked in phase 3 (nixos-anywhere 1.13): the two runs work. `--phases kexec
 > --generate-hardware-config nixos-generate-config <path>` boots the installer and
@@ -340,7 +375,7 @@ clone.
 3. `nixod join` → PR. CI checks it.
 4. Trusted host: `nixod review <pr>` → user reads → `nixod approve <pr>`.
 5. The hub applies it on its own (≤ 5 min).
-6. New host: `sudo nixos-rebuild switch`. Other hosts get notified later.
+6. New host: `sudo nixos-rebuild boot`, then reboot. Other hosts get notified later.
 
 ---
 

@@ -53,6 +53,12 @@ in
       keyboard = {
         console = fill "Console keymap, e.g. \"fr\" or \"us\".";
         xkb = fill "X11 keyboard layout, e.g. \"fr\" or \"us\".";
+        xkbVariant = mkOption {
+          type = types.str;
+          default = "";
+          example = "oss";
+          description = "X11 layout variant, e.g. \"oss\" (fr), \"nodeadkeys\" (de), \"intl\" (us).";
+        };
       };
 
       repo = {
@@ -68,11 +74,6 @@ in
           description = "Where the clone lives on hosts.";
         };
       };
-
-      hub.hashedPassword = fill ''
-        Password hash for the user on the hub (mkpasswd -m sha-512). Only
-        used on the provider's console; SSH password login stays disabled.
-      '';
     };
   };
 

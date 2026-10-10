@@ -20,8 +20,12 @@ in
 
     # Login on the provider's VNC/serial console, for when SSH is down or
     # during a recovery (`nixod trust-once`). SSH password login stays off.
+    # The hash is put on the hub at install (`nixod identity hub
+    # --console-password`), never in the repo. Users are mutable: it is read
+    # when the user is created; change it later with `passwd` (as root, over
+    # SSH).
     users.users = lib.optionalAttrs (s.user.name != null) {
-      ${s.user.name}.hashedPassword = s.hub.hashedPassword;
+      ${s.user.name}.hashedPasswordFile = "/var/lib/nixod/console-password";
     };
 
     nixod.profiles.zram.enable = lib.mkDefault true;

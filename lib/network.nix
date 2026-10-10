@@ -76,6 +76,11 @@ in
       hubCount = lib.count (m: (m.role or null) == "hub") (lib.attrValues machines);
       ids = lib.filter lib.isString (map (m: m.syncthingId or null) (lib.attrValues machines));
       duplicateIds = lib.unique (lib.filter (id: lib.count (x: x == id) ids > 1) ids);
+      # The key part only ("type base64"): the comment doesn't make a key different.
+      userKeys = map (k: lib.concatStringsSep " " (lib.take 2 (lib.splitString " " k))) (
+        lib.filter lib.isString (map (m: m.userKey or null) (lib.attrValues machines))
+      );
+      duplicateKeys = lib.unique (lib.filter (k: lib.count (x: x == k) userKeys > 1) userKeys);
     in
     map (k: "${k}: unknown top-level field") (
       lib.attrNames (
@@ -89,7 +94,11 @@ in
     ++ lib.optional (
       machines != { } && hubCount != 1
     ) "there must be exactly one hub (found ${toString hubCount})"
-    ++ map (id: "Syncthing ID ${id} is used by more than one machine") duplicateIds;
+    ++ map (id: "Syncthing ID ${id} is used by more than one machine") duplicateIds
+    ++ map (
+      k:
+      "userKey ${k} is used by more than one machine: each machine needs its own (nixod identity host), or removing one wouldn't revoke it"
+    ) duplicateKeys;
 
   message =
     errors: "nixod: network.nix is invalid:\n" + lib.concatMapStrings (e: "  - ${e}\n") errors;

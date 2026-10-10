@@ -49,6 +49,13 @@ for f in default.nix hardware-configuration.nix; do
   [[ -e hosts/$name/$f ]] || die "hosts/$name/$f is missing"
 done
 
+step "Check the clone is where settings.repo.path says"
+# Update checks and `nixod update` look for the clone there.
+# shellcheck disable=SC2088 # a literal ~, expanded by expand_home below
+want=$(nix_ eval --raw --file settings.nix repo.path 2>/dev/null) || want='~/nixod'
+[[ $(realpath -m "$(expand_home "$want")") == "$(realpath -m "$PWD")" ]] ||
+  die "this clone is at $PWD, but settings.repo.path is $want: move the clone there (every machine keeps it at the same place)"
+
 step "Branch $branch"
 if git show-ref --verify --quiet "refs/heads/$branch"; then
   run git switch --quiet "$branch"

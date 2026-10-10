@@ -143,6 +143,7 @@ pkgs.testers.runNixOSTest {
     tower.succeed(
         "install -d -m 700 -o alice -g users /home/alice/.ssh",
         "install -m 600 -o alice -g users ${keys}/tower /home/alice/.ssh/id_ed25519",
+        "install -m 600 -o alice -g users ${keys}/tower /home/alice/.ssh/nixod_ed25519",
         alice("git config --global user.name alice && git config --global user.email alice@example.org"),
         alice("git config --global init.defaultBranch main"),
         alice("git init -q work && git -C work remote add origin git@github:nixod.git"),

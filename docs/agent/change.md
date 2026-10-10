@@ -16,7 +16,7 @@ commits.
      nixpkgs`; a newer nixod: `nix flake update nixod`.
 3. **Build** every machine the change touches, at least this one, and the hub
    whenever `network.nix` or `flake.lock` changes:
-   `nix build .#nixosConfigurations.<name>.config.system.build.toplevel`.
+   `nix build --no-link .#nixosConfigurations.<name>.config.system.build.toplevel`.
    `nix flake check` evaluates them all.
 4. **Commit and push:** `git commit -am "..."` then `git push`.
 5. **Apply here:** `nixod update` (verifies, then `nixos-rebuild switch`).

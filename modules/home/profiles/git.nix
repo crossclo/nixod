@@ -45,11 +45,12 @@ in
       })
 
       # Signed commits, and `git log --show-signature` against the keys the
-      # network trusts. The key is the one `nixod identity host` made.
+      # network trusts. The key is this machine's own, made by
+      # `nixod identity host`.
       (lib.mkIf inNetwork (defaults {
         programs.git.signing = {
           format = "ssh";
-          key = "${config.home.homeDirectory}/.ssh/id_ed25519";
+          key = "${config.home.homeDirectory}/.ssh/nixod_ed25519";
           signByDefault = true;
         };
         programs.git.settings.gpg.ssh.allowedSignersFile = "/etc/nixod/allowed_signers";

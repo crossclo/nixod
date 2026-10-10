@@ -9,8 +9,9 @@ Its `summary` (first in the output) has what the rules below work out:
 `none`, with the addresses and gateway when static), `gatewayOutsideSubnet`,
 `nameservers`, the `disk` to install on (`path`, `byId`, `sizeGiB`), and
 `warnings` (also printed on stderr). Start from it; the raw data under it is
-there to check it, or for a case it doesn't cover. Save the output: `nixod
-probe --from-json <file>` summarizes it again without SSH.
+there to check it, or for a case it doesn't cover. Save the output outside
+the repo (`$XDG_RUNTIME_DIR/probe.json`): `nixod probe --from-json <file>`
+summarizes it again without SSH.
 
 ## First: can this VPS run the hub?
 
@@ -124,4 +125,6 @@ Pick the disk from `disks` (type `disk`, the biggest). Use its stable name from
 
 When the provider's setup doesn't fit (an unusual boot, network or disk), adapt
 these files, or pass flags through: `nixod install-hub ... -- <nixos-anywhere
-flags>`. Tell the user what you do differently and why.
+flags>`. A provider that gives a sudo user instead of root (AWS, Oracle):
+`nixod probe <user>@<ip>` works as is; nixos-anywhere takes the same
+`<user>@<ip>` and uses sudo (passwordless sudo needed). Tell the user what you do differently and why.

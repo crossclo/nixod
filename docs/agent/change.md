@@ -8,10 +8,12 @@ this machine's key (git does it): the hub and the other hosts only apply signed
 commits. A signed commit vouches for its whole tree, including whatever is
 under it: never sign on top of commits nobody verified.
 
-1. **Check, then pull:** `nixod check` first. "up to date" or "ready": go on
-   with `git pull` (on `main`, clean tree). **"rejected"**: stop. GitHub has
-   commits no trusted machine signed; see "A rejected update" below before
-   anything else.
+1. **Check, then catch up:** `nixod check` first (it fetches and verifies).
+   "up to date" or "ready": go on with `git merge --ff-only origin/main` (on
+   `main`, clean tree), which takes exactly what was verified (not `git pull`,
+   which would fetch again). **"rejected"**: stop. GitHub has commits no
+   trusted machine signed; see "A rejected update" below before anything
+   else.
 2. **Edit:**
    - one machine: `hosts/<name>/`; every host's user setup: `home/`;
    - a synced folder: in `network.nix`, under `folders` and in each machine's
@@ -22,10 +24,14 @@ under it: never sign on top of commits nobody verified.
    whenever `network.nix` or `flake.lock` changes:
    `nix build --no-link .#nixosConfigurations.<name>.config.system.build.toplevel`.
    `nix flake check` evaluates them all.
-4. **Commit and push:** `git commit -am "..."` then `git push`.
-5. **Apply here:** `nixod update` (verifies, then `nixos-rebuild switch`).
-   The hub applies it on its own; the other hosts get a notification and run
-   `nixod update` when it suits them.
+4. **Commit and push:** `git add -A` (new files too: flakes only see what git
+   knows), check `git status`, `git commit -m "..."` (signed by itself), `git
+   push`. Push refused (someone pushed meanwhile): `nixod check`, `git pull
+   --rebase` only if it says "ready", build again, push.
+5. **Apply here (the user, in a terminal):** `nixod update` (verifies, then
+   `sudo nixos-rebuild switch`, which asks for their password). The hub
+   applies it on its own; the other hosts get a notification and run `nixod
+   update` when it suits them.
 
 `nixod status` shows the running commit, the hub's last update and the Syncthing
 peers.

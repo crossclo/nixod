@@ -15,8 +15,11 @@ nixod is split into **two repos**:
 | `nixod` (framework) | public | NixOS/Home Manager modules, the `lib` that builds a machine's config, the `nixod` CLI, agent playbooks, the flake template |
 | `<user>/nixod-config` (instance) | **private** | `network.nix`, `settings.nix`, `hosts/`, personal home overrides, `AGENTS.md`, `flake.lock` |
 
-The instance is created with `nix flake init -t github:crossclo/nixod` (or the
-GitHub "Use this template" button). It uses the framework as a flake input.
+The instance is created with `nix flake init -t github:crossclo/nixod` in a
+new repo (`git init -b main`), then pushed as a private GitHub repo (`gh repo
+create --private --source . --push`). GitHub's "Use this template" button on
+nixod would copy the framework, not `template/`. The instance uses the
+framework as a flake input.
 
 **Why:** fixes to the security-critical parts (signature checks, update units,
 config generation) reach every user through `nix flake update nixod`. With a
@@ -40,8 +43,7 @@ modules/
     nixod/
       syncthing.nix       # Syncthing config generated from network.nix
       ssh.nix             # knownHosts (hub), authorizedKeys (on hub), allowed_signers file
-      update-hub.nix      # automatic update service on the hub
-      update-host.nix     # check + notify + `nixod update` on hosts
+      update.nix          # hub: automatic updates; hosts: check + notify, `nixod update`
       hub.nix             # hub role: sshd hardened, headless, Syncthing as system user
     profiles/             # opt-in, enabled per host via nixod.profiles.<name>.enable
       desktop-i3.nix  audio.nix  networking.nix  zram.nix  security-hardening.nix
@@ -206,7 +208,7 @@ by hand on a machine.
 | `nixod identity hub <name>` | first host | generates the hub's Syncthing identity, SSH host key and deploy key in a staging dir (`$XDG_RUNTIME_DIR`, tmpfs); prints the public parts. `--console-password` (the user, in a terminal) stages the yescrypt hash of the hub's console password |
 | `nixod probe root@<ip>` | first host | reads the VPS's stock OS: interfaces, addresses, routes, DNS, disks, memory, arch, BIOS/UEFI. Prints JSON for the agent, with a `summary` worked out locally (`probe-summary.jq`): IPv4/IPv6 method and addresses, gateway outside the subnet, the disk, warnings (memory, arch, several disks). `--from-json` summarizes a saved probe |
 | `nixod init-status [<name>]` | first host | where an interrupted init stands: checks each init step against the repo, the staging dir, GitHub and the VPS, prints the step to continue at (`--offline`: no network checks) |
-| `nixod install-hub <name> root@<ip>` | first host | checks the staged Syncthing ID, host key and deploy key match `network.nix` and the console password is staged; adds the deploy key on GitHub (`gh repo deploy-key add --read-only`), runs `nixos-anywhere --extra-files <staging> --chown …`, puts the hub's host key in `known_hosts`, then wipes the staging dir |
+| `nixod install-hub <name> root@<ip>` | first host | checks the staged Syncthing ID, host key and deploy key match `network.nix` and the console password is staged; adds the deploy key on GitHub (`gh repo deploy-key add`, read-only by default), runs `nixos-anywhere --extra-files <staging> --chown …`, puts the hub's host key in `known_hosts`, then wipes the staging dir |
 | `nixod join` | new host | checks the clone is at `settings.repo.path`; branch `join/<name>`, commit, push, `gh pr create` (`--no-pr`: push only) |
 | `nixod review <pr\|branch>` | trusted host | fetches the request, shows the machines added/removed and the folders each new one gets, the `network.nix` diff and the files touched; warns about changes to other machines' entries or folder options, and (with the full diff) about any file outside `network.nix` and the new host's `hosts/<name>/`; builds the new host and the hub; records the reviewed commit |
 | `nixod approve <pr\|branch>` | trusted host | refuses unless the request is exactly the reviewed commit, and unless `main` verifies (a signed merge vouches for it too); `git merge --no-ff -S` locally, push. GitHub marks the PR merged |
@@ -215,11 +217,11 @@ by hand on a machine.
 | `nixod remove <name>` | trusted host | after the entry is deleted from `network.nix`: deletes `hosts/<name>/`, builds the hub, signed commit, push |
 | `nixod status` | any | running commit vs `main`, Syncthing peers, last hub update |
 | `nixod doc [<name>]` | any | prints a playbook of this nixod version (no name: lists them) |
+| `nixod trust-once --from <name>` | hub, **provider console only** | reads `machines.<name>.userKey` from `network.nix` on GitHub, shows its fingerprint, asks to confirm; then trusts that key for the next commit signed by it (or a day), once. Also takes the key itself |
 
 Before a machine runs nixod (init, join, recover), the CLI comes from the
 instance itself: `nix run .#nixod -- <command>` (the instance flake exposes
 `packages.nixod` from the framework version it pins).
-| `nixod trust-once <pubkey>` | hub, **provider console only** | trusts this key for exactly one verified update, then clears it |
 
 ---
 
@@ -273,7 +275,7 @@ new = origin/<branch> after fetch
   confirm`, x11-ssh-askpass, the agent started in the graphical session): a
   human check on every signature and hub login.
 
-### Hub: automatic (`update-hub.nix`)
+### Hub: automatic (`update.nix`)
 
 - `nixod-update.timer`, every 5 minutes.
 - Its own clone at `/var/lib/nixod/repo`, fetched with the **read-only deploy
@@ -282,7 +284,7 @@ new = origin/<branch> after fetch
 - If the build or the check fails, the current generation keeps running. The
   error goes to the journal and shows in `nixod status`.
 
-### Hosts: notify, you apply (`update-host.nix`)
+### Hosts: notify, you apply (`update.nix`)
 
 - User-level `nixod-check.timer`: 5 minutes after login, then hourly.
 - Works in the user's own clone (`settings.repo.path`) using the user's GitHub
@@ -309,11 +311,13 @@ holds the only copy of the data.
   hub.
 - The new machine is described and gets its identity, as in a join, and its
   entry is committed (signed with its own key).
-- On the console: `nixod trust-once <new host userKey>` writes
-  `/var/lib/nixod/trust-once`. The update check accepts a signature from that key
-  **once**, then deletes the file, even if the check fails.
-- The new host pushes its commit. The hub applies it, and the host is in
-  `network.nix` for good.
+- The new host pushes its commit first; the hub rejects it for now.
+- On the console: `nixod trust-once --from <name>` reads the new host's key from
+  that commit, shows its fingerprint to compare with the new machine's, and
+  writes `/var/lib/nixod/trust-once`. The first new commit signed by that key
+  is checked with it, once, accepted or not; then the file is deleted. Commits
+  not signed by it leave it waiting; unused, it expires after a day.
+- The hub applies the commit, and the host is in `network.nix` for good.
 - The command refuses to run outside a local console: no SSH variables, and
   the login session (which `sudo -i` keeps) must be local (logind's
   `Remote=no`), so it can only be used from the console.
@@ -390,7 +394,7 @@ interrupted init can be resumed from what the repo and the machine show
 3. `nixod join` → PR. CI checks it.
 4. Trusted host: `nixod review <pr>` → user reads → `nixod approve <pr>`.
 5. The hub applies it on its own (≤ 5 min).
-6. New host: `sudo nixos-rebuild boot`, then reboot. Other hosts get notified later.
+6. New host: `nixod update --first <name>` (verifies the approval against the hosts of its own request's `network.nix`, then `nixos-rebuild boot`), then reboot. Other hosts get notified later.
 
 ---
 

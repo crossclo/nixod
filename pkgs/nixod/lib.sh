@@ -174,7 +174,12 @@ check_base() {
   local repo=$1 rev cur reason
   rev=$(git -C "$repo" rev-parse "$2")
   cur=$(running_rev)
-  [[ -n $cur ]] || cur=$(git -C "$repo" rev-parse HEAD)
+  if [[ -z $cur ]]; then
+    # A system built from a dirty tree records no revision: nothing to walk
+    # from, so the base itself must carry a trusted signature.
+    signed_by "$repo" "$rev" "$NIXOD_SIGNERS" && return 0
+    die "refusing to sign on top of $2: this machine runs a system with no recorded revision (built from a dirty tree), and $2 isn't signed by a trusted machine. Show the user what it changes (git log -p) before going on (nixod doc change)."
+  fi
   [[ $rev == "$cur" ]] && return 0
   reason=$(verify "$repo" "$cur" "$rev" "$NIXOD_SIGNERS") || die "refusing to sign on top of $2: $reason.
 Signing would vouch for it. Show the user what it changes, from the running commit:

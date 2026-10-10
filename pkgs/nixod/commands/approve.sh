@@ -57,9 +57,13 @@ if ! run git merge --quiet --no-ff -S -m "nixod: approve join request $id" "$hea
 fi
 
 step "Push $NIXOD_BRANCH"
-run git push --quiet origin "$NIXOD_BRANCH"
+if ! run git push --quiet origin "$NIXOD_BRANCH"; then
+  git reset --quiet --hard "refs/remotes/origin/$NIXOD_BRANCH"
+  die "push refused: someone pushed meanwhile. The merge was undone locally: run nixod approve $id again"
+fi
 run rm -f "$marker"
 
 step "Next"
 info "The hub applies it within minutes (nixod status on the hub)."
-info "Then, on the new host: nixod update (or sudo nixos-rebuild switch)."
+info "Then the new host, in its clone (the user, in a terminal):"
+info "  nix run .#nixod -- update --first <its name>, then reboot"

@@ -7,7 +7,8 @@
 #   2. it is signed by a trusted key: one in /etc/nixod/allowed_signers, from
 #      the RUNNING system (a commit can't vouch for itself), as updated by the
 #      signed commits in between (see `verify` in lib.sh), or the one-time key
-#      that `nixod trust-once` set from the console.
+#      that `nixod trust-once` set from the console: used up by the first new
+#      commit signed by it, and dropped unused after a day.
 # Otherwise, or if the build fails, the running system stays. The result goes
 # to the journal and to /var/lib/nixod/status (`nixod status`).
 set -euo pipefail
@@ -47,14 +48,24 @@ fi
 
 step "Verify $new"
 signers=$NIXOD_SIGNERS
-if [[ -e $trust_once ]]; then
-  signers=$(mktemp)
-  trap 'rm -f "$signers"' EXIT
-  cat "$NIXOD_SIGNERS" >"$signers"
-  printf 'trust-once namespaces="git" %s\n' "$(cut -d' ' -f1,2 "$trust_once")" >>"$signers"
-  # One check only, whatever its result.
+if [[ -e $trust_once && -n $(find "$trust_once" -mmin +1440 2>/dev/null) ]]; then
   rm -f "$trust_once"
-  info "the trust-once key is accepted for this check only (now removed)"
+  info "the trust-once key was set more than a day ago and never used: removed"
+fi
+if [[ -e $trust_once ]]; then
+  tmp=$(mktemp -d)
+  trap 'rm -rf "$tmp"' EXIT
+  printf 'trust-once namespaces="git" %s\n' "$(cut -d' ' -f1,2 "$trust_once")" >"$tmp/once"
+  # Used up by the first commit signed by it, accepted or not. Other commits
+  # (pushed before the recovery commit) leave it waiting.
+  if signed_by "$repo" "$new" "$tmp/once"; then
+    cat "$NIXOD_SIGNERS" "$tmp/once" >"$tmp/signers"
+    signers=$tmp/signers
+    rm -f "$trust_once"
+    info "$new is signed by the trust-once key: accepted for this check only (key now removed)"
+  else
+    info "a trust-once key is waiting for a commit signed by it"
+  fi
 fi
 if ! reason=$(verify "$repo" "$cur" "$new" "$signers"); then
   record rejected "$reason"

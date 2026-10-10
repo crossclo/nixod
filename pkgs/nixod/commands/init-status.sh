@@ -106,6 +106,10 @@ done
 if ! in_network "$hub"; then mark 6 0 "machines.$hub is not in network.nix"
 elif [[ $hub_installed == 1 ]]; then mark 6 1 "the hub is installed"
 elif [[ $staged == 1 ]]; then mark 6 1
+elif [[ $hub_installed == u ]]; then
+  # The staging dir is deleted by the install: without the network, an
+  # installed hub and lost keys look the same. Never suggest new keys then.
+  mark 6 u "no staged identity: the hub may be installed already (check without --offline before making a new identity)"
 else
   mark 6 0 "the staged identity in $staging is incomplete or gone: a new one is needed, and its public parts in network.nix (nixod doc init, Resuming)"
 fi

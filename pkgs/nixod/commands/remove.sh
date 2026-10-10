@@ -39,6 +39,20 @@ done
 }
 cd "$(git rev-parse --show-toplevel)"
 
+step "Guards"
+[[ $name != "${NIXOD_NAME:-}" ]] ||
+  die "$name is this machine: remove it from another machine of the network"
+# shellcheck disable=SC2016 # a Nix expression, not shell
+hosts_left=$(nix_ eval --raw --file network.nix machines \
+  --apply 'ms: toString (builtins.length (builtins.filter (n: ms.${n}.role == "host") (builtins.attrNames ms)))' 2>/dev/null || echo 0)
+[[ $hosts_left -ge 1 ]] ||
+  die "no host would be left in network.nix: nobody could sign changes any more (only the provider console could get you back in)"
+
+step "Check $NIXOD_BRANCH is up to date with GitHub"
+run git fetch --quiet origin "$NIXOD_BRANCH"
+[[ $DRY_RUN == 1 || $(git rev-parse HEAD) == $(git rev-parse "refs/remotes/origin/$NIXOD_BRANCH") ]] ||
+  die "local $NIXOD_BRANCH is not origin/$NIXOD_BRANCH: run nixod check, then git merge --ff-only origin/$NIXOD_BRANCH (or push your own commits), then delete the entry again if needed"
+
 step "Check machines.$name is deleted from network.nix"
 committed=$(mktemp)
 trap 'rm -f "$committed"' EXIT
@@ -73,7 +87,7 @@ run git commit --quiet -S -m "nixod: remove $name"
 
 step "Push $NIXOD_BRANCH"
 run git push --quiet origin "$NIXOD_BRANCH" ||
-  die "push refused: pull (git pull) and run nixod remove again"
+  die "push refused: someone pushed meanwhile. Undo the commit (git reset --soft HEAD~1; the entry stays deleted), run nixod check, git stash, git merge --ff-only origin/$NIXOD_BRANCH, git stash pop, then nixod remove $name again"
 
 step "Next"
 info "The hub applies it within minutes; other hosts at their next update."

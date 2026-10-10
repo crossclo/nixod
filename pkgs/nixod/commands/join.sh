@@ -85,8 +85,9 @@ if [[ $pr == 1 ]]; then
   run gh pr create --base "$NIXOD_BRANCH" --head "$branch" --title "nixod: join $name" --body "New host \`$name\` asks to join the network.
 
 On a trusted machine: \`nixod review <this PR's number>\`, then \`nixod approve <number>\`.
-The hub applies the approved merge on its own; then rebuild \`$name\`."
+The hub applies the approved merge on its own. Then, on \`$name\`, in its clone: \`nix run .#nixod -- update --first $name\`, and reboot."
 fi
 
 step "Next"
 info "On a trusted machine: nixod review <PR number or $branch>, then nixod approve."
+info "Once approved, here: nix run .#nixod -- update --first $name (the user, in a terminal), then reboot."

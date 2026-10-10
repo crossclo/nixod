@@ -32,7 +32,7 @@ installed.
 In a separate terminal:
 
 ```sh
-nix run nixpkgs#gh -- auth login
+nix --extra-experimental-features "nix-command flakes" run nixpkgs#gh -- auth login
 ```
 
 Tell them to pick **GitHub.com**, **HTTPS**, and yes to "Authenticate Git
@@ -144,7 +144,7 @@ separate terminal, sets the hub's **console password** (the provider's web
 console only; SSH never accepts passwords):
 
 ```sh
-nix run .#nixod -- identity hub <hub> --console-password
+nix --extra-experimental-features "nix-command flakes" run .#nixod -- identity hub <hub> --console-password
 ```
 
 It asks twice and stages a yescrypt hash, which goes onto the hub at install:

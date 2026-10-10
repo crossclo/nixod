@@ -15,7 +15,7 @@ separate terminal**: give them the exact command. `! <command>` gives no
 terminal: don't use it for prompts. Passwords never go through the chat.
 
 0. **GitHub and the clone** (the user, in a separate terminal):
-   `nix run nixpkgs#gh -- auth login`: GitHub.com, **HTTPS**, yes to
+   `nix --extra-experimental-features "nix-command flakes" run nixpkgs#gh -- auth login`: GitHub.com, **HTTPS**, yes to
    "Authenticate Git with your GitHub credentials". Then they clone the repo
    (it's private) **where `settings.repo.path` says** (`~/nixod` unless
    changed; every machine keeps it at the same place):
@@ -40,6 +40,11 @@ terminal: don't use it for prompts. Passwords never go through the chat.
    trusted machine: the review flags them.
 5. **Tell the user** to ask their agent on a trusted machine to review and
    approve it (`nixod doc review`), and to come back once it's approved.
+   If approve says the request doesn't merge cleanly (another machine joined
+   meanwhile): on `join/<name>`, `git fetch origin && git merge origin/main`,
+   fix `network.nix` (keep both machines), `nixod join <name>` again; the
+   trusted machine reviews it again. A merge, not a rebase: the branch keeps
+   the commit `update --first` trusts.
 6. **After the approval:** the hub accepts this machine within minutes. The
    switch changes the desktop (and often drivers): the running session can't
    survive it, so the new system becomes the boot default and the machine
@@ -49,7 +54,7 @@ terminal: don't use it for prompts. Passwords never go through the chat.
    in the boot menu. Then the user runs, in the repo:
 
    ```sh
-   nix run .#nixod -- update --first <name>
+   nix --extra-experimental-features "nix-command flakes" run .#nixod -- update --first <name>
    reboot
    ```
 

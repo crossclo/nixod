@@ -108,6 +108,9 @@ pkgs.testers.runNixOSTest {
 
     # The hub with the identity install-hub would have put there.
     hub = machine "hub" {
+      # The test driver types QWERTY key codes; the fixture's console keymap
+      # is French.
+      console.keyMap = lib.mkForce "us";
       # The console password install-hub would have staged.
       users.users.alice = {
         hashedPasswordFile = lib.mkForce null;
@@ -123,8 +126,10 @@ pkgs.testers.runNixOSTest {
   };
 
   testScript = ''
+    import shlex
+
     def alice(cmd):
-        return f"su - alice -c {repr(cmd)}"
+        return f"su - alice -c {shlex.quote(cmd)}"
 
     def push(message, key="tower"):
         # alice edits her work clone and pushes; key: tower | stranger | unsigned
@@ -194,7 +199,17 @@ pkgs.testers.runNixOSTest {
         assert "not in a login session" in out, out
 
     with subtest("trust-once from the console accepts exactly one update"):
-        # As recover.md says: log in on the console as the user, sudo -i, run it.
+        # As recover.md says: the recovery commit (the new machine in
+        # network.nix, signed by its own key) is pushed first; it waits.
+        tower.succeed(alice(
+            "cd work && printf '{ machines.newhost = { role = \"host\"; userKey = \"%s\"; }; }\\n' "
+            "\"$(cat ~/.ssh/stranger.pub)\" >network.nix && git add network.nix && "
+            "git -c gpg.format=ssh -c user.signingkey=/home/alice/.ssh/stranger commit -q -S -m recover && "
+            "git push -q origin HEAD:main"
+        ))
+        t1 = tower.succeed(alice("git -C work rev-parse HEAD")).strip()
+        assert "is not signed by a trusted machine" in hub_update(ok=False)
+        # Then on the console: log in as the user, sudo -i, trust-once --from.
         hub.wait_for_unit("getty@tty1.service")
         hub.wait_until_tty_matches("1", "login: ")
         hub.send_chars("alice\n")
@@ -206,10 +221,12 @@ pkgs.testers.runNixOSTest {
         hub.send_chars("console\n")
         # root's shell, on the pseudo-terminal sudo opened (use_pty).
         hub.wait_until_succeeds("ps -eo user,tty,comm --no-headers | grep -Eq '^root +pts/[0-9]+ +bash$'")
-        hub.send_chars(f"nixod trust-once '{stranger}' >/tmp/trust-once.log 2>&1\n")
+        hub.send_chars("nixod trust-once --from newhost 2>&1 | tee /tmp/trust-once.log\n")
+        hub.wait_until_tty_matches("1", "Type yes if they are the same")
+        hub.send_chars("yes\n")
         hub.wait_for_file("/var/lib/nixod/trust-once")
         hub.succeed("grep -q 'local console session' /tmp/trust-once.log")
-        t1 = push("new-host-joins", key="stranger")
+        hub.succeed(f"grep -qF '{stranger}' /var/lib/nixod/trust-once")
         assert f"applied {t1}" in hub_update(ok=True)
         hub.fail("test -e /var/lib/nixod/trust-once")
         push("second-commit-same-key", key="stranger")

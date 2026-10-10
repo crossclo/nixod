@@ -24,11 +24,17 @@ no hardware profiles: you write what this machine needs.
   ```nix
   services.xserver.videoDrivers = [ "nvidia" ];
   hardware.nvidia = {
-    open = false;   # Pascal (GTX 10xx) and older; Turing (GTX 16xx, RTX) and newer: true
     modesetting.enable = true;
+    # Turing (GTX 16xx, RTX 20xx) and newer:
+    open = true;
     package = config.boot.kernelPackages.nvidiaPackages.stable;
+    # Maxwell, Pascal (GTX 9xx, 10xx) and Volta: the current driver no longer
+    # supports them; the 580 branch does:
+    #   open = false;
+    #   package = config.boot.kernelPackages.nvidiaPackages.legacy_580;
   };
   ```
+  Older cards (Kepler and before): `legacy_470` or older, see the NixOS manual.
   AMD or Intel: nothing to add.
 - **Laptop** (`ls /sys/class/power_supply/BAT*`): `services.power-profiles-daemon.enable`,
   `services.upower.enable`, touchpad in `services.libinput.touchpad`, and
@@ -57,6 +63,10 @@ Show the user what you found and what you plan to write; wait for their yes.
 From `/etc/nixos/configuration.nix`, bring over what isn't hardware or already
 covered by nixod (services, packages, settings). Keep `system.stateVersion`
 exactly as it is there.
+
+**Not Syncthing**: an existing `services.syncthing` config (devices, folders)
+isn't brought over. nixod generates Syncthing from `network.nix`; old folders
+become `network.nix` folders (ask the user which), old devices are dropped.
 
 **Not the old desktop**, when `desktop-i3` is on: leave out its display
 manager (`services.displayManager.gdm`, `sddm`, `services.xserver.displayManager.lightdm`)
@@ -94,6 +104,10 @@ dotfiles). An existing Home Manager config: keep its `home.stateVersion` (in
 managed. Port
 them to Home Manager options where they exist, else `xdg.configFile` /
 `home.file`, into `home/` (every host) or `hosts/<name>/home.nix` (this one).
+**In a join or a recovery, only `hosts/<name>/home.nix`** (and files under
+`hosts/<name>/`): the join request carries only `network.nix` and
+`hosts/<name>/`, so a change in `home/` would be missing from it. Shared
+changes go in a `change` once the machine is in.
 
 Everything nixod's profiles set is a default: setting the same option in
 `home/` wins and keeps the rest. Profiles turn off with

@@ -11,7 +11,9 @@ Sources:
 - what was found while building nixod (phases 1 to 6);
 - the review of the walkthrough's fixes (2026-10-10);
 - a second paper review of every flow by a fresh agent (2026-10-11); its
-  report stopped after its third finding (R1–R3 below), the rest was lost.
+  report stopped after its third finding (R1–R3 below), the rest was lost;
+- a third review, on correctness and usability (2026-10-11): Q1–Q13, q1–q13
+  below.
 
 ---
 
@@ -49,13 +51,36 @@ VM tests included (CI run 38084260057, one runner per VM test).
 | R1 | Signing on top of unverified commits: `approve`, `remove`, a `change` commit, the recovery commit, and the old "sign on top" advice all vouched for whatever was on `main`, turning a GitHub takeover into a signed update | `approve` and `remove` refuse unless what they sign on top of verifies (`check_base`); `change` runs `nixod check` before `git pull`, and a rejected update is shown to the user (accept explicitly, or undo it in a signed commit); `recover` compares `main` with the hub's running commit first. A new host's first build goes through `nixod update --first <name>`, which verifies the approval against its own join request's `network.nix`. |
 | R2 | `nixod review` evaluated the request's `network.nix` as plain Nix: it could read local files (the nixod key) and send them out | The request's `network.nix` is evaluated alone in an empty directory, in restricted mode (no file reads, no fetches, no search path, no import from derivation); `network.nix` must be plain data. |
 | R3 | `trust-once` refused every pseudo-terminal, and `sudo -i` (the documented way to become root on the console) runs on one: recovery couldn't complete | It checks the login session instead (logind's `Remote=no`, kept through sudo). The VM test now does the documented path: login on tty1, `sudo -i`, `nixod trust-once`; and checks a service without a session is refused. |
+| Q1 | No working way to create the instance repo ("Use this template" copies the framework) | README gives the commands (`git init -b main`, `nix flake init -t`, `gh repo create --private`). |
+| Q2 | The trust-once key was used up by any failing check, before the recovery commit arrived | Used up only by a commit signed by it; others leave it waiting; unused, it expires after a day. Recovery pushes its commit first. |
+| Q3 | A whole public key typed by hand on a VNC console | `nixod trust-once --from <name>` reads it from the pushed commit and shows the fingerprint to compare. Tested in the VM, as documented (tty1 login, `sudo -i`). |
+| Q4 | Dotfiles written to `home/` in a join are missing from the request | In a join or recovery, only `hosts/<name>/home.nix`; shared changes later, in a `change`. |
+| Q5 | `nixod update` (sudo) given to the agent | Marked as the user's step, in a terminal (change, recover). |
+| Q6 | `git commit -am` misses new files | `git add -A`, `git status`, commit; what to do when the push is refused. |
+| Q7 | `init-status --offline` after the install sent the user back to step 6 (new hub keys) | Offline with no staging dir: "unknown, the hub may be installed". |
+| Q8 | NVIDIA advice wrong for Maxwell/Pascal/Volta on 26.05 (current driver dropped them) | `legacy_580` for those; `stable` + `open = true` for Turing and newer. |
+| Q9 | The machine's name defaulted to `hostname` (often `nixos`) | AGENTS.md: the name is the one in `network.nix`/`hosts/`; ask when it may differ. |
+| Q10 | Reinstalling a machine under the same name had no path | AGENTS.md row and README: remove it from another machine, then join again. |
+| Q11 | No instructions for a join request that conflicts | join.md: merge `origin/main` into `join/<name>`, fix, `nixod join` again, review again. |
+| Q12 | `nixod remove` retry after a refused push didn't work; no catch-up first | remove.md catches up first; `remove` refuses unless `main` is GitHub's, and gives the real retry. |
+| Q13 | `approve`/`join` printed outdated next steps | Both print `update --first <name>`, then reboot. |
+| q1–q13 | Minor | AGENTS row after the first reboot; `approve` resets after a refused push; existing Syncthing config not ported; probe saved outside the repo; flakes flag in commands handed to the user; `ssh -t` for `passwd`; `remove` refuses this machine and the last host; remove.md on what happens to folders; review.md on building the request vs the merge; README CI wording; moving to a new VPS vs reinstalling; PLAN drift; sudo-user providers. Also: `check_base` with no running revision requires the base to be signed; change.md fast-forwards to the verified commit instead of `git pull`. |
 | N1 | (new) A machine that is behind rejected commits signed by machines that joined since, and accepted ones signed by machines removed since | Trust follows the history: each signed commit that changes `network.nix` updates the trusted keys for the commits after it (`verify` in `lib.sh`, tested in `tests/update.nix`). |
 
 ---
 
 ## Still open
 
-Nothing: the deferred items are done (see below).
+### S1. nixos-anywhere doesn't check the VPS's host key
+
+`install-hub` runs nixos-anywhere, which connects with
+`StrictHostKeyChecking=no` and `UserKnownHostsFile=/dev/null` (the host key
+changes after kexec, so it can't pin it). The fingerprint the user checks at
+init step 4 is only enforced for `nixod probe`. A machine in the middle at
+install time could see what is installed, the staged hub keys included. A
+fix needs nixos-anywhere to check the provider OS's key on the first
+connection (an upstream change, or a wrapper running the first step with
+`StrictHostKeyChecking=yes`).
 
 ---
 

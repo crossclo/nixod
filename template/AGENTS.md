@@ -15,14 +15,18 @@ What nixod is and how it works: https://github.com/crossclo/nixod (README).
 
 ## Which mode
 
-Look at `network.nix` and this machine's name (`hostname`):
+Look at `network.nix` and this machine's name. Its name is the one in
+`network.nix` and `hosts/<name>/`: usually `hostname`, but a fresh NixOS is
+often still called `nixos`. When the two may differ, ask the user, and look
+for a `hosts/<name>/` written on this machine.
 
 | Situation | Playbook |
 |---|---|
 | `network.nix` has no machines | `init` (it uses `describe-host` and `hub`) |
 | this machine is not in `network.nix` | `join` (it uses `describe-host`) |
 | this machine is in `network.nix`, as its only host, but doesn't run nixod yet (no `/etc/nixod/config`): an interrupted init | `init` (its "Resuming" section; `nixod init-status`) |
-| this machine is in `network.nix` with other hosts, but doesn't run nixod yet: an interrupted join | `join` (its "Resuming" section) |
+| this machine is in `network.nix` with other hosts, but doesn't run nixod yet: an interrupted join, or a machine reinstalled under the same name (ask which) | `join` (its "Resuming" section); reinstalled: `remove` it from another machine first, then `join` |
+| this machine runs nixod and the user says "resume the setup" (after the first reboot) | `init` step 11, or `join` step 7 |
 | the user asks to review / approve a join request | `review` |
 | the user wants something changed on their machines | `change` |
 | the user wants a machine out (lost, sold, broken) | `remove` |

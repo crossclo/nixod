@@ -100,8 +100,18 @@ You do this once, from your first machine. That machine must already run NixOS.
 **You need:** a machine running NixOS, a fresh VPS from any provider (root SSH
 access to its stock Linux), and a GitHub account.
 
-1. **Create your repo.** Make a **private** copy of this template on GitHub, log
-   in with `gh auth login` and clone it onto your first machine.
+1. **Create your repo**, private, from nixod's template (on your first machine;
+   `gh auth login` first, HTTPS):
+
+   ```sh
+   mkdir ~/nixod && cd ~/nixod && git init -b main
+   nix --extra-experimental-features "nix-command flakes" flake init -t github:crossclo/nixod
+   git add -A && git commit -m "nixod template"
+   gh repo create nixod-config --private --source . --push
+   ```
+
+   (Not GitHub's "Use this template" button on nixod: it copies the
+   framework, not the template.)
 2. **Start your agent** in the repo and tell it: *"This is the setup of my nixod
    network."* It reads `AGENTS.md` and follows the setup steps.
 3. **The agent describes your first machine:**
@@ -153,7 +163,8 @@ machine** and one **trusted machine** (any machine already in your network).
 4. **The agent creates the machine's identity** (Syncthing ID and SSH key) and adds
    it to `network.nix`.
 5. **The agent opens a pull request.** This is the **join request**. GitHub
-   Actions checks that the new machine and the VPS configs still build.
+   Actions checks that every machine's config still evaluates (the full build
+   happens on the trusted machine, at the review).
 
 ### On a trusted machine
 
@@ -185,8 +196,12 @@ machine** and one **trusted machine** (any machine already in your network).
 - **Remove a machine** (lost, sold, broken): delete its entry from `network.nix`
   on a trusted machine and commit. The VPS stops accepting it, and it can no
   longer approve changes.
-- **Reinstall the VPS:** run the install from Flow 1 again. If the VPS identity
-  changes, its entry in `network.nix` is updated and every machine follows.
+- **Move to a new VPS** (an empty one: a new provider, a bigger plan): the hub
+  steps of Flow 1 again (probe, a new hub identity, its entry in `network.nix`,
+  install). The old VPS keeps the files until the new one has synced them.
+  Never reinstall a VPS that holds data in place.
+- **Reinstall one of your machines** (new disk, fresh NixOS): remove it from
+  another machine, then join it again, under the same name if you like.
 
 ---
 
@@ -197,13 +212,16 @@ machine that can approve changes. The way back in goes through your VPS
 provider's web console, and doesn't touch the VPS's data:
 
 1. Install NixOS on a new machine, clone your repo, start your agent and tell it:
-   *"Recover my nixod network."* It describes the machine and creates its
-   identity, as when adding a machine.
+   *"Recover my nixod network."*
 2. Log into your provider's panel, open the VPS console, and log in with the
-   console password you set at setup.
-3. Tell the VPS to trust your new machine's key for one single change.
-4. The new machine adds itself to the network. The VPS applies that one change,
-   then goes back to normal. Rebuild the new machine, and your files come back.
+   console password you set at setup. You read the agent which commit the VPS
+   runs, so it can check nobody changed the repo in the meantime.
+3. The agent describes the new machine, creates its identity, and pushes the
+   commit that adds it to the network.
+4. On the console, you tell the VPS to trust that commit's key once, after
+   comparing its fingerprint with the one your agent shows. The VPS applies
+   that one change, then goes back to normal. Rebuild the new machine, and your
+   files come back.
 
 So keep access to your VPS provider account and the console password: with every
 machine lost, they are the only way back in.

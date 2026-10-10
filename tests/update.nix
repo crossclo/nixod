@@ -2,7 +2,8 @@
 # a local bare repo standing in for GitHub. Each case below is a commit (or a
 # forced push) followed by the hub's check:
 #   accepted: a signed fast-forward; a signed commit on top of unsigned ones
-#             (only the tip must be signed); one trust-once commit
+#             (only the tip must be signed); one trust-once commit (the key
+#             waits through other commits, and expires after a day)
 #   rejected: unsigned; signed by an unknown key; a rollback to an older
 #             signed commit; rewritten history; a removed host's key; a second
 #             trust-once commit; and a failed build keeps the running commit.
@@ -133,9 +134,13 @@ pkgs.runCommand "nixod-update"
     commit stranger "second trust-once commit" >/dev/null
     rejects "is not signed by a trusted machine"
 
-    # trust-once is used up by a failed check too.
+    # Commits not signed by the trust-once key leave it waiting (they may be
+    # pushed before the recovery commit); unused, it expires after a day.
     commit unsigned "unsigned, while a trust-once key is set" >/dev/null
     cp stranger.pub state/trust-once
+    rejects "is not signed by a trusted machine"
+    test -e state/trust-once
+    touch -d "2 days ago" state/trust-once
     rejects "is not signed by a trusted machine"
     test ! -e state/trust-once
     git -C work reset -q --hard "$t1"

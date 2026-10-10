@@ -1,4 +1,5 @@
-# Shell: zsh + starship + modern CLI tools, SSH agent.
+# Shell: zsh + starship + modern CLI tools, SSH agent (optionally asking for
+# confirmation each time a key is used).
 {
   config,
   lib,
@@ -12,8 +13,16 @@ let
   repo = osConfig.nixod.settings.repo.path;
   host = osConfig.networking.hostName;
   defaults = import ../../../lib/defaults.nix { inherit lib; };
+  confirm = config.nixod.home.ssh.confirm;
 in
 {
+  options.nixod.home.ssh.confirm = lib.mkEnableOption ''
+    a confirmation dialog each time a key in the ssh-agent is used: every
+    commit signature and every login to the hub then needs a click. It is a
+    human check on what the agent signs. It only protects a key with a
+    passphrase (without one, signing reads the key file directly, no agent
+    involved). Needs the desktop (the dialog is graphical)'';
+
   config = lib.mkIf config.nixod.home.shell.enable (
     lib.mkMerge [
       {
@@ -130,6 +139,31 @@ in
           enableDefaultConfig = false;
           # Adds keys to the agent on first use.
           settings."*".AddKeysToAgent = "yes";
+        };
+      })
+
+      (lib.mkIf confirm {
+        assertions = [
+          {
+            assertion = osConfig.nixod.profiles.desktop-i3.enable;
+            message = "nixod.home.ssh.confirm needs the desktop (desktop-i3): its dialog is graphical.";
+          }
+        ];
+
+        # Keys added on first use (ssh, or `ssh-add -c` by hand) need a
+        # confirmation at each use.
+        programs.ssh.settings."*".AddKeysToAgent = "confirm";
+
+        # ssh-agent shows the dialog itself, with its own environment: give it
+        # the askpass program, and start it inside the graphical session so it
+        # has DISPLAY.
+        systemd.user.services.ssh-agent = {
+          Service.Environment = [ "SSH_ASKPASS=${pkgs.x11_ssh_askpass}/libexec/x11-ssh-askpass" ];
+          Unit = {
+            After = [ "graphical-session-pre.target" ];
+            PartOf = [ "graphical-session.target" ];
+          };
+          Install.WantedBy = lib.mkForce [ "graphical-session.target" ];
         };
       })
     ]

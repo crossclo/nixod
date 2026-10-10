@@ -1,0 +1,31 @@
+{
+  "os": "debian 12",
+  "arch": "x86_64",
+  "virtualization": "kvm",
+  "boot": "bios",
+  "memoryKiB": 1012000,
+  "interfaces": [
+    { "ifname": "lo", "addr_info": [ { "family": "inet", "local": "127.0.0.1", "prefixlen": 8, "scope": "host" } ] },
+    { "ifname": "eth0", "addr_info": [
+      { "family": "inet", "local": "203.0.113.10", "prefixlen": 32, "scope": "global", "dynamic": true },
+      { "family": "inet6", "local": "2001:db8::1234", "prefixlen": 64, "scope": "global", "dynamic": true, "mngtmpaddr": true },
+      { "family": "inet6", "local": "fe80::1234", "prefixlen": 64, "scope": "link" }
+    ] }
+  ],
+  "routes4": [
+    { "dst": "default", "gateway": "172.31.1.1", "dev": "eth0", "protocol": "dhcp", "flags": [ "onlink" ] },
+    { "dst": "172.31.1.1", "dev": "eth0", "protocol": "dhcp", "scope": "link" }
+  ],
+  "routes6": [ { "dst": "default", "gateway": "fe80::1", "dev": "eth0", "protocol": "ra" } ],
+  "nameservers": [ "185.12.64.1" ],
+  "disks": { "blockdevices": [
+    { "name": "sda", "path": "/dev/sda", "size": 40000000000, "type": "disk" },
+    { "name": "sdb", "path": "/dev/sdb", "size": "10737418240", "type": "disk" },
+    { "name": "sr0", "path": "/dev/sr0", "size": 1000000, "type": "rom" }
+  ] },
+  "diskById": {
+    "/dev/disk/by-id/wwn-0x5000": "/dev/sda",
+    "/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_drive-scsi0": "/dev/sda"
+  },
+  "kernelModules": [ "virtio_net", "virtio_scsi" ]
+}

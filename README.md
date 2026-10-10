@@ -86,6 +86,9 @@ machine approves, every machine applies. `nixod review` shows what a join
 request adds, the folders the new machine gets, and flags anything else it
 changes; read it before saying "approve".
 
+If setup stops halfway (a crash, a logout), tell your agent to resume:
+`nixod init-status` shows which steps are done and where to continue.
+
 ---
 
 ## Flow 1: Setting up your network
@@ -126,6 +129,9 @@ access to its stock Linux), and a GitHub account.
 9. **Done.** The VPS private keys are deleted from your machine; nothing secret
    is stored in the repo. Your machine's key has no passphrase at first (the
    agent signs with it); add one if you like, and unlock it once per session.
+   With a passphrase, you can also have a dialog ask you each time the key
+   is used: then nothing gets signed, by the agent or anything else, without
+   your click.
 
 ---
 

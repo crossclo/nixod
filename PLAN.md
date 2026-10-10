@@ -204,7 +204,8 @@ by hand on a machine.
 |---|---|---|
 | `nixod identity host <name>` | new host | generates the Syncthing identity into `~/.config/syncthing` and this machine's own SSH key `~/.ssh/nixod_ed25519` if missing (no passphrase unless `--passphrase`: the agent signs with it); prints the IDs |
 | `nixod identity hub <name>` | first host | generates the hub's Syncthing identity, SSH host key and deploy key in a staging dir (`$XDG_RUNTIME_DIR`, tmpfs); prints the public parts. `--console-password` (the user, in a terminal) stages the yescrypt hash of the hub's console password |
-| `nixod probe root@<ip>` | first host | reads the VPS's stock OS: interfaces, addresses, routes, DNS, disks, memory, arch, BIOS/UEFI. Prints JSON for the agent |
+| `nixod probe root@<ip>` | first host | reads the VPS's stock OS: interfaces, addresses, routes, DNS, disks, memory, arch, BIOS/UEFI. Prints JSON for the agent, with a `summary` worked out locally (`probe-summary.jq`): IPv4/IPv6 method and addresses, gateway outside the subnet, the disk, warnings (memory, arch, several disks). `--from-json` summarizes a saved probe |
+| `nixod init-status [<name>]` | first host | where an interrupted init stands: checks each init step against the repo, the staging dir, GitHub and the VPS, prints the step to continue at (`--offline`: no network checks) |
 | `nixod install-hub <name> root@<ip>` | first host | checks the staged Syncthing ID, host key and deploy key match `network.nix` and the console password is staged; adds the deploy key on GitHub (`gh repo deploy-key add --read-only`), runs `nixos-anywhere --extra-files <staging> --chown …`, puts the hub's host key in `known_hosts`, then wipes the staging dir |
 | `nixod join` | new host | checks the clone is at `settings.repo.path`; branch `join/<name>`, commit, push, `gh pr create` (`--no-pr`: push only) |
 | `nixod review <pr\|branch>` | trusted host | fetches the request, shows the machines added/removed and the folders each new one gets, the `network.nix` diff and the files touched; warns about changes to other machines' entries or folder options, and (with the full diff) about any file outside `network.nix` and the new host's `hosts/<name>/`; builds the new host and the hub; records the reviewed commit |
@@ -260,7 +261,10 @@ new = origin/<branch> after fetch
   shared: `network.nix` refuses a `userKey` used twice, so removing a machine
   always revokes its key. It has no passphrase at first, so the agent can
   sign; the user may add one (`ssh-keygen -p`) and load it into the
-  ssh-agent once per session.
+  ssh-agent once per session. With a passphrase, `nixod.home.ssh.confirm`
+  adds a confirmation dialog for each use of the key (`AddKeysToAgent
+  confirm`, x11-ssh-askpass, the agent started in the graphical session): a
+  human check on every signature and hub login.
 
 ### Hub: automatic (`update-hub.nix`)
 
@@ -327,7 +331,7 @@ clone.
 
 The steps that can end the agent's session (logout, reboot) come last, and an
 interrupted init can be resumed from what the repo and the machine show
-(`init` playbook, "Resuming").
+(`init` playbook, "Resuming", and `nixod init-status`).
 
 0. **User:** `gh auth login` (HTTPS).
 1. The agent detects **init mode**: `network.nix` has no machines.

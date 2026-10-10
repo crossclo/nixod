@@ -244,13 +244,22 @@ reboot
   `ssh <hub>`), and until then you can't sign changes or log into the hub. To
   add it: `ssh-keygen -p -f ~/.ssh/nixod_ed25519`, in their terminal. The
   key stays the same: nothing to change in the repo.
+- With a passphrase, offer one more step: a confirmation dialog each time the
+  key is used (`nixod.home.ssh.confirm = true;` in `home/default.nix`). Every
+  commit you sign and every login to the hub then waits for the user's click:
+  a human check on what you do with the key. Without a passphrase it protects
+  nothing (signing reads the key file directly). Then the user adds the key
+  with `ssh-add -c`.
 - Remind the user what keeps the network recoverable: the hub's console
   password and access to the provider account (`nixod doc recover`).
 
 ## Resuming
 
-An init interrupted halfway (session lost, logout, crash). Check in this
-order, and continue at the first step that isn't done:
+An init interrupted halfway (session lost, logout, crash).
+`nixod init-status <name>` checks each step below against the repo and the
+machines, and prints the step to continue at (`--offline` skips GitHub and
+SSH; `--hub <hub>` while `network.nix` doesn't name the hub yet). The same
+checks, by hand, in this order:
 
 | Done when | Step |
 |---|---|

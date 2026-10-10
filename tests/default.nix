@@ -126,6 +126,22 @@ in
       missingInTemplate
     ) "expected one assertion per missing setting, got: ${lib.concatStringsSep "; " failed}";
 
+  # nixod.home.ssh.confirm: keys added with confirmation, an askpass for the
+  # agent, which starts with the graphical session.
+  ssh-confirm =
+    let
+      home =
+        (fixture.nixosConfigurations.tower.extendModules {
+          modules = [ { home-manager.users.alice.nixod.home.ssh.confirm = true; } ];
+        }).config.home-manager.users.alice;
+      agent = home.systemd.user.services.ssh-agent;
+    in
+    check "ssh-confirm" (
+      home.programs.ssh.settings."*".data.AddKeysToAgent == "confirm"
+      && lib.any (lib.hasPrefix "SSH_ASKPASS=") agent.Service.Environment
+      && agent.Install.WantedBy == [ "graphical-session.target" ]
+    ) "nixod.home.ssh.confirm doesn't set the agent up for confirmations";
+
   # Overriding one default value keeps the others.
   defaults-override =
     let

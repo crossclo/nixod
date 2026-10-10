@@ -21,7 +21,7 @@ Look at `network.nix` and this machine's name (`hostname`):
 |---|---|
 | `network.nix` has no machines | `init` (it uses `describe-host` and `hub`) |
 | this machine is not in `network.nix` | `join` (it uses `describe-host`) |
-| this machine is in `network.nix`, as its only host, but doesn't run nixod yet (no `/etc/nixod/config`): an interrupted init | `init` (its "Resuming" section) |
+| this machine is in `network.nix`, as its only host, but doesn't run nixod yet (no `/etc/nixod/config`): an interrupted init | `init` (its "Resuming" section; `nixod init-status`) |
 | this machine is in `network.nix` with other hosts, but doesn't run nixod yet: an interrupted join | `join` (its "Resuming" section) |
 | the user asks to review / approve a join request | `review` |
 | the user wants something changed on their machines | `change` |
@@ -55,6 +55,9 @@ Look at `network.nix` and this machine's name (`hostname`):
 - Commits are signed, and the hub is reached, with this machine's key
   `~/.ssh/nixod_ed25519`. If signing or `ssh <hub>` fails because the key has a
   passphrase and isn't loaded, ask the user to run `ssh-add
-  ~/.ssh/nixod_ed25519` in their terminal (once per session), then retry.
+  ~/.ssh/nixod_ed25519` in their terminal (once per session; `ssh-add -c` with
+  `nixod.home.ssh.confirm`), then retry. With `nixod.home.ssh.confirm`, each
+  use shows the user a dialog: if they refuse, that is their answer. Never
+  sign another way to get around it.
 - Everything nixod's modules set is a default. Override in `home/` or
   `hosts/<name>/`; don't copy nixod's modules into this repo.

@@ -35,6 +35,7 @@ stdenvNoCC.mkDerivation {
       ./lib.sh
       ./commands
       ./probe-remote.sh
+      ./probe-summary.jq
     ];
   };
 
@@ -54,7 +55,7 @@ stdenvNoCC.mkDerivation {
   installPhase = ''
     runHook preInstall
     mkdir -p $out/libexec/nixod $out/bin
-    cp -r nixod lib.sh commands probe-remote.sh $out/libexec/nixod/
+    cp -r nixod lib.sh commands probe-remote.sh probe-summary.jq $out/libexec/nixod/
     cp -r ${docs} $out/libexec/nixod/docs
     chmod +x $out/libexec/nixod/nixod $out/libexec/nixod/commands/*.sh
     patchShebangs $out/libexec/nixod/nixod $out/libexec/nixod/commands

@@ -13,6 +13,7 @@ Usage: nixod <command> [options]
   identity hub <name>              create the hub's identity in a tmpfs staging dir
   probe <user@ip>                  describe a VPS's stock system (network, disks, boot)
   install-hub <name> <user@ip>     install NixOS on the hub with nixos-anywhere
+  init-status [<name>]             where an interrupted init stands, and the next step
 
   join [<name>]                    new host: push its join request (branch + pull request)
   review <pr | branch>             trusted host: show and build a join request
@@ -35,7 +36,7 @@ EOF
 cmd=${1:-}
 [[ $# -gt 0 ]] && shift
 case $cmd in
-identity | probe | install-hub | join | review | approve | remove | doc | check | update | status | trust-once | update-hub) exec "$libexec/commands/$cmd.sh" "$@" ;;
+identity | probe | install-hub | init-status | join | review | approve | remove | doc | check | update | status | trust-once | update-hub) exec "$libexec/commands/$cmd.sh" "$@" ;;
 "" | -h | --help | help) usage ;;
 *)
   printf 'nixod: unknown command: %s\n\n' "$cmd" >&2

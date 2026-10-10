@@ -13,7 +13,7 @@ Sources:
 
 ---
 
-## Fixed (2026-10-10)
+## Fixed
 
 What the walkthrough found, and how it was fixed. Every check passes, the
 VM tests included (CI run 38084260057, one runner per VM test).
@@ -41,23 +41,16 @@ VM tests included (CI run 38084260057, one runner per VM test).
 | O2 | syncthing uid hard-coded | Read from the hub's config; 237:237 only as a fallback with `--store-paths`. |
 | O3 | Framework CI on demand only | Every push runs all checks but the VM tests; VM tests stay on demand. |
 | O4 | Review doesn't flag changes inside `network.nix` | `nixod review` lists the new machine's folders and warns about any changed entry or folder option; README says the review is the boundary. |
+| P4 | (deferred) `nixod init-status` | Done (2026-10-11): checks every init step against the repo, the staging dir, GitHub and the VPS, prints the step to continue at; `--offline`. Tested offline in `tests/cli.nix`. |
+| P5, P7 | (deferred) probe summary and warnings | Done (2026-10-11): `probe` adds a `summary` computed locally by `probe-summary.jq` (IPv4/IPv6 method, gateway outside the subnet, disk, warnings for memory, arch, several disks); `--from-json` re-summarizes a saved probe. Tested on two sample probes. |
+| — | (deferred) confirmation for each use of the key | Done (2026-10-11): `nixod.home.ssh.confirm` (`AddKeysToAgent confirm`, x11-ssh-askpass, the ssh-agent started in the graphical session). Only useful with a passphrase. Evaluated in the checks, never run on a desktop (see T5). |
 | N1 | (new) A machine that is behind rejected commits signed by machines that joined since, and accepted ones signed by machines removed since | Trust follows the history: each signed commit that changes `network.nix` updates the trusted keys for the commits after it (`verify` in `lib.sh`, tested in `tests/update.nix`). |
 
 ---
 
 ## Still open
 
-### Deferred (bigger changes, later)
-
-- **`nixod init-status`**: a command printing which init step is done (P4).
-  The playbook's "Resuming" table covers it for now.
-- **`nixod probe` summaries and warnings**: the method per address family,
-  whether the gateway is on-link (P5), and warnings for low memory or another
-  architecture (P7). The playbook derives them from the JSON for now; more
-  shell in `probe-remote.sh` would be more untested code (T4).
-- **Asking for confirmation on each signature** (`ssh-add -c` with a graphical
-  askpass): a human gate on every change the agent signs. Needs an askpass
-  program in the desktop profile.
+Nothing: the deferred items are done (see below).
 
 ---
 
@@ -98,7 +91,9 @@ output.
 
 The host modules (i3, greetd, Home Manager profiles) are evaluated in the
 checks (`eval-host`) but never built and never booted. The VM tests use hosts
-without a desktop.
+without a desktop. That includes `nixod.home.ssh.confirm`: whether the
+ssh-agent, started with the graphical session, gets DISPLAY and shows the
+dialog is unverified.
 
 ### T6. Syncthing between real hosts
 

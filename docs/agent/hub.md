@@ -4,7 +4,18 @@
 `hosts/<hub>/default.nix` and `hosts/<hub>/disko.nix`.
 `hardware-configuration.nix` comes later, from `nixod install-hub --stage hardware`.
 
+Its `summary` (first in the output) has what the rules below work out:
+`interface`, `ipv4` and `ipv6` (`method`: `dhcp`, `slaac`, `static` or
+`none`, with the addresses and gateway when static), `gatewayOutsideSubnet`,
+`nameservers`, the `disk` to install on (`path`, `byId`, `sizeGiB`), and
+`warnings` (also printed on stderr). Start from it; the raw data under it is
+there to check it, or for a case it doesn't cover. Save the output: `nixod
+probe --from-json <file>` summarizes it again without SSH.
+
 ## First: can this VPS run the hub?
+
+`summary.warnings` says it for the two cases below; tell the user before
+going on.
 
 - `memoryKiB`: the installer runs in RAM (kexec) and needs about 1.5 GB. Below
   1500000, warn the user that the install may fail or hang, and suggest a
@@ -27,9 +38,10 @@ address family on its own:
   advertisements (SLAAC): leave it to the kernel, write nothing. A global
   address without it is static: copy it, and the `default` route of `routes6`
   (often `fe80::1`, on the interface).
-- **Gateway outside the subnet** (a `/32` address, as at OVH, Hetzner and
-  others; or a gateway that isn't inside the address's prefix): the default
-  route alone fails. Declare the route to the gateway as on-link first:
+- **Gateway outside the subnet** (`summary.ipv4.gatewayOutsideSubnet`: a
+  `/32` address, as at OVH, Hetzner and others; or a gateway that isn't
+  inside the address's prefix): with DHCP, the DHCP server sends the route to
+  the gateway, nothing to do. Static: the default route alone fails. Declare the route to the gateway as on-link first:
 
 ```nix
 networking.interfaces.eth0.ipv4.routes = [

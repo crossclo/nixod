@@ -1,0 +1,21 @@
+{
+  "os": "ubuntu 24.04",
+  "arch": "aarch64",
+  "virtualization": "kvm",
+  "boot": "uefi",
+  "memoryKiB": 4012000,
+  "interfaces": [
+    { "ifname": "lo", "addr_info": [ { "family": "inet", "local": "127.0.0.1", "prefixlen": 8, "scope": "host" } ] },
+    { "ifname": "ens3", "addr_info": [
+      { "family": "inet", "local": "198.51.100.20", "prefixlen": 24, "scope": "global" },
+      { "family": "inet6", "local": "2001:db8:5::20", "prefixlen": 64, "scope": "global" },
+      { "family": "inet6", "local": "fe80::20", "prefixlen": 64, "scope": "link" }
+    ] }
+  ],
+  "routes4": [ { "dst": "default", "gateway": "198.51.100.1", "dev": "ens3", "protocol": "static" } ],
+  "routes6": [ { "dst": "default", "gateway": "2001:db8:5::1", "dev": "ens3", "protocol": "static" } ],
+  "nameservers": [ "198.51.100.53" ],
+  "disks": { "blockdevices": [ { "name": "vda", "path": "/dev/vda", "size": 85899345920, "type": "disk" } ] },
+  "diskById": {},
+  "kernelModules": [ "virtio_net", "virtio_blk" ]
+}

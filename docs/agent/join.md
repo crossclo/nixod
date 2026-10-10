@@ -57,7 +57,8 @@ terminal: don't use it for prompts. Passwords never go through the chat.
    peers, and the folders start arriving. From now on, updates come with
    `nixod update`. Offer a passphrase for the key, as in `nixod doc init`
    (step 11): `ssh-keygen -p -f ~/.ssh/nixod_ed25519`, in their terminal, and
-   then the user unlocks it once per session (`ssh-add`).
+   then the user unlocks it once per session (`ssh-add`); and, with it, the
+   confirmation dialog for each use (`nixod.home.ssh.confirm`).
 
 ## Resuming
 

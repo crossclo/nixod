@@ -4,9 +4,10 @@
 # Fetches the repo into the hub's own clone, with the read-only deploy key,
 # then applies the new commit only if:
 #   1. it builds on the commit the hub runs (no rewritten history, no rollback);
-#   2. it is signed by a key in /etc/nixod/allowed_signers, from the RUNNING
-#      system (a commit can't vouch for itself), or by the one-time key that
-#      `nixod trust-once` set from the console.
+#   2. it is signed by a trusted key: one in /etc/nixod/allowed_signers, from
+#      the RUNNING system (a commit can't vouch for itself), as updated by the
+#      signed commits in between (see `verify` in lib.sh), or the one-time key
+#      that `nixod trust-once` set from the console.
 # Otherwise, or if the build fails, the running system stays. The result goes
 # to the journal and to /var/lib/nixod/status (`nixod status`).
 set -euo pipefail

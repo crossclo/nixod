@@ -94,19 +94,58 @@ running_rev() {
   printf '%s' "$rev"
 }
 
+# signed_by <repo> <commit> <signers>: is <commit> signed by a key in <signers>?
+signed_by() {
+  git -C "$1" -c gpg.ssh.allowedSignersFile="$3" verify-commit "$2" >/dev/null 2>&1
+}
+
+# signers_at <repo> <commit>: the allowed_signers lines for the hosts in
+# network.nix at <commit> (same format as /etc/nixod/allowed_signers).
+# Fails if network.nix can't be read or evaluated on its own.
+signers_at() {
+  local file rc=0
+  file=$(mktemp)
+  git -C "$1" show "$2:network.nix" >"$file" 2>/dev/null &&
+    nix_ eval --store dummy:// --json --file "$file" machines 2>/dev/null |
+    jq -er 'to_entries[] | select(.value.role == "host" and (.value.userKey | type) == "string")
+      | "\(.key) namespaces=\"git\" \(.value.userKey | split(" ") | .[0:2] | join(" "))"' || rc=1
+  rm -f "$file"
+  return $rc
+}
+
 # verify <repo> <cur> <new> <signers>: may <new> be applied on top of <cur>?
-# Prints why not and returns 1. The signers file must come from the running
-# system, never from the commit being checked.
+# Prints why not and returns 1. <signers> must come from the running system,
+# never from the commit being checked.
+#
+# Trust follows the history: walking from <cur> to <new>, each commit that
+# changes network.nix and is signed by a key trusted so far makes its own
+# network.nix the trusted list for the commits after it. So a machine that
+# is behind accepts a commit signed by a machine that joined since, and
+# rejects one signed by a machine removed since. <new> itself must be signed
+# by a key trusted by the commits under it.
 verify() {
-  local repo=$1 cur=$2 new=$3 signers=$4
+  local repo=$1 cur=$2 new=$3 trusted=$4 dir blob b c
   if ! git -C "$repo" merge-base --is-ancestor "$cur" "$new" 2>/dev/null; then
     echo "$new does not build on the running commit $cur (rewritten history or rollback)"
     return 1
   fi
-  if ! git -C "$repo" -c gpg.ssh.allowedSignersFile="$signers" verify-commit "$new" >/dev/null 2>&1; then
+  dir=$(mktemp -d)
+  blob=$(git -C "$repo" rev-parse -q --verify "$cur:network.nix" 2>/dev/null || true)
+  while read -r c; do
+    [[ $c != "$new" ]] || continue
+    b=$(git -C "$repo" rev-parse -q --verify "$c:network.nix" 2>/dev/null || true)
+    [[ -n $b && $b != "$blob" ]] || continue
+    signed_by "$repo" "$c" "$trusted" || continue
+    # A network.nix that doesn't evaluate on its own leaves the trust as it is.
+    signers_at "$repo" "$c" >"$dir/$c" || continue
+    trusted=$dir/$c blob=$b
+  done < <(git -C "$repo" rev-list --reverse --topo-order --ancestry-path "$cur..$new")
+  if ! signed_by "$repo" "$new" "$trusted"; then
+    rm -rf "$dir"
     echo "$new is not signed by a trusted machine"
     return 1
   fi
+  rm -rf "$dir"
 }
 
 # expand_home <path>: ~/x → $HOME/x

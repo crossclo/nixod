@@ -177,6 +177,33 @@ pkgs.runCommand "nixod-update"
     test "$(git -C clone rev-parse HEAD)" = "$h1"
     expect "$h1" applied
 
+    # ---- Trust follows network.nix, for a hub several commits behind ----
+    export NIXOD_NAME=hub NIXOD_ROLE=hub NIXOD_STATE=$TMPDIR/state NIXOD_SIGNERS=$TMPDIR/signers
+    ssh-keygen -q -t ed25519 -N "" -C laptop -f laptop
+    network() { # network <host...>: network.nix with these hosts and a hub
+      { echo '{ machines = { hub = { role = "hub"; };'
+        for h in "$@"; do echo "  $h = { role = \"host\"; userKey = \"$(cat "$h.pub")\"; };"; done
+        echo '}; }'
+      } >work/network.nix
+      git -C work add network.nix
+    }
+    network tower
+    commit tower "network.nix: tower" >/dev/null
+    accepts
+    network tower laptop
+    commit tower "laptop joins" >/dev/null
+    n2=$(commit laptop "a change made on laptop")
+    accepts
+    test "$(revision)" = "$n2"
+
+    # The hub now trusts tower and laptop; laptop is removed, then signs.
+    echo "laptop namespaces=\"git\" $(cut -d' ' -f1,2 laptop.pub)" >>signers
+    network tower
+    commit tower "laptop removed" >/dev/null
+    commit laptop "signed by laptop after its removal" >/dev/null
+    rejects "is not signed by a trusted machine"
+    test "$(revision)" = "$n2"
+
     # ---- trust-once refuses SSH sessions, hosts and non-root ----
     key=$(cat stranger.pub)
     SSH_CONNECTION="198.51.100.7 50000 203.0.113.10 22" NIXOD_ROLE=hub run_fails "this is an SSH session" nixod trust-once "$key"

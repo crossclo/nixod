@@ -140,6 +140,18 @@ pkgs.testers.runNixOSTest {
         ))
         return tower.succeed(alice("git -C work rev-parse HEAD")).strip()
 
+    def tty1_until(keys, expect, tries=12):
+        # Types on the hub's console until `expect` shows: a shell that is
+        # still starting may drop what is typed too early.
+        for _ in range(tries):
+            hub.send_chars(keys)
+            try:
+                hub.wait_until_tty_matches("1", expect, timeout=10)
+                return
+            except Exception:
+                pass
+        raise Exception(f"{expect!r} never appeared on tty1:\n{hub.get_tty_text('1')}")
+
     def hub_update(ok):
         (hub.succeed if ok else hub.fail)("systemctl start nixod-update.service")
         return hub.succeed("cat /var/lib/nixod/status")
@@ -216,8 +228,8 @@ pkgs.testers.runNixOSTest {
         hub.wait_until_tty_matches("1", "Password: ")
         hub.send_chars("console\n")
         hub.wait_until_succeeds("loginctl list-sessions --no-legend | grep -q 'alice.*tty1'")
-        hub.send_chars("sudo -i\n")
-        hub.wait_until_tty_matches("1", "password for alice")
+        tty1_until("echo ready-$((40+2))\n", "ready-42")
+        tty1_until("sudo -i\n", "password for alice", tries=1)
         hub.send_chars("console\n")
         # root's shell, on the pseudo-terminal sudo opened (use_pty).
         hub.wait_until_succeeds("ps -eo user,tty,comm --no-headers | grep -Eq '^root +pts/[0-9]+ +bash$'")

@@ -5,7 +5,7 @@ name: check
 #   - every push and pull request: every check except the VM tests (vm-*):
 #     evaluation, settings and network validation, the CLI, update
 #     verification, the docs;
-#   - on demand, everything, VM tests included:
+#   - on demand, the VM tests, each on its own runner:
 #       gh workflow run check -R crossclo/nixod
 on:
   push:
@@ -14,7 +14,6 @@ on:
 
 jobs:
   quick:
-    if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,9 +24,15 @@ jobs:
             | jq -r '.[] | select(startswith("vm-") | not) | ".#checks.x86_64-linux.\(.)"')
           nix build --no-link -L --show-trace $checks
 
-  full:
+  # One runner per VM test: all of them at once (about 10 VMs) overload a
+  # runner until it is killed.
+  vm:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        check: [vm-sync, vm-update, vm-join, vm-install-hub]
     steps:
       - uses: actions/checkout@v4
 
@@ -44,5 +49,5 @@ jobs:
           extra_nix_config: |
             system-features = nixos-test benchmark big-parallel kvm
 
-      - name: nix flake check
-        run: nix flake check -L --show-trace
+      - name: ${{ matrix.check }}
+        run: nix build --no-link -L --show-trace .#checks.x86_64-linux.${{ matrix.check }}

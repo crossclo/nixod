@@ -4,5 +4,5 @@
   programs.kitty.settings.background_opacity = "1.0";
   programs.zsh.shellAliases.ll = "eza -l";
 
-  home.stateVersion = "25.11";
+  home.stateVersion = "26.05";
 }

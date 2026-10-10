@@ -15,5 +15,5 @@
   imports = [ ];
 
   # Set once, at the first Home Manager generation. Never change it after.
-  home.stateVersion = "25.11";
+  home.stateVersion = "26.05";
 }

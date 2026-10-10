@@ -45,7 +45,7 @@ networking = {
     efiInstallAsRemovable = true;
   };
   # networking = { ... };
-  system.stateVersion = "25.11";   # the release it is installed with
+  system.stateVersion = "26.05";   # the release it is installed with
 }
 ```
 

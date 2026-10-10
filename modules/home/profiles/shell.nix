@@ -129,7 +129,7 @@ in
           enable = true;
           enableDefaultConfig = false;
           # Adds keys to the agent on first use.
-          matchBlocks."*".addKeysToAgent = "yes";
+          settings."*".AddKeysToAgent = "yes";
         };
       })
     ]

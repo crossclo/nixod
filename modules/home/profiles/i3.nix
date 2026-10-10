@@ -199,7 +199,7 @@ in
             # Turns off screen blanking on idle (DPMS + X11 default blanking,
             # ~10 min). Manual lock and suspend stay handled by xss-lock below.
             {
-              command = "${pkgs.xorg.xset}/bin/xset s off -dpms";
+              command = "${pkgs.xset}/bin/xset s off -dpms";
               notification = false;
               always = true;
             }

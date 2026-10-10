@@ -2,9 +2,9 @@
   description = "nixod: the same system and the same files on every machine you own";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
     home-manager = {
-      url = "github:nix-community/home-manager/release-25.11";
+      url = "github:nix-community/home-manager/release-26.05";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     # Declarative disk layout, used by nixos-anywhere to install the hub.
@@ -48,6 +48,6 @@
         pkgs = nixpkgs.legacyPackages.x86_64-linux;
       };
 
-      formatter = forAllSystems (pkgs: pkgs.nixfmt-rfc-style);
+      formatter = forAllSystems (pkgs: pkgs.nixfmt);
     };
 }

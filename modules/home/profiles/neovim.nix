@@ -35,7 +35,7 @@ in
             pyright
             jdt-language-server # java
             bash-language-server
-            nixfmt-rfc-style
+            nixfmt
             ripgrep # needed by Telescope
             fd
           ];
@@ -91,7 +91,7 @@ in
             oil-nvim
           ];
 
-          extraLuaConfig = ''
+          initLua = ''
             -- ===== Options =====
             vim.g.mapleader = " "
             vim.opt.number = true

@@ -74,7 +74,7 @@ let
       programs.ssh.knownHosts.github = githubKnown;
       # nixos-rebuild is stubbed; keep the VMs small.
       documentation.enable = false;
-      system.stateVersion = "25.11";
+      system.stateVersion = "26.05";
     } extra;
 in
 pkgs.testers.runNixOSTest {

@@ -25,7 +25,7 @@ let
   # Used both by initial_session (auto-login) and by the i3 entry of the
   # tuigreet menu: one start path, tested.
   boot-i3 = pkgs.writeShellScript "boot-i3" ''
-    exec ${pkgs.xorg.xinit}/bin/startx /home/${user}/.xsession
+    exec ${pkgs.xinit}/bin/startx /home/${user}/.xsession
   '';
 
   # Sessions offered by tuigreet:

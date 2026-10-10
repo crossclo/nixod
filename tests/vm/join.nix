@@ -77,7 +77,7 @@ let
       publicKey = readKey "${keys}/github.pub";
     };
     documentation.enable = false;
-    system.stateVersion = "25.11";
+    system.stateVersion = "26.05";
   };
 in
 pkgs.testers.runNixOSTest {

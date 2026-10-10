@@ -27,7 +27,7 @@ VM tests included (CI run 38084260057, one runner per VM test).
 | B5 | `gh` not installed or logged in | Step 0 in init and join: `nix run nixpkgs#gh -- auth login`, HTTPS. |
 | P1 | No git identity before the switch | `git config user.name/user.email` for the repo, at init, join, recover. |
 | P2 | SSH to the VPS not prepared | Init step 4: the user checks the host key and runs `ssh-copy-id`; the agent checks with `BatchMode`. `probe` uses `BatchMode` and the nixod key. |
-| P3 | `!` may not give a terminal | Prompts are run "in a separate terminal"; `!` only mentioned as unreliable. Still to check once: does `! tty` print a terminal in Claude Code? |
+| P3 | `!` may not give a terminal | Checked: it doesn't (`! tty` prints "not a tty"). Prompts run "in a separate terminal"; the docs say not to use `!` for them. |
 | P4, P9 | No way to resume an interrupted init | An AGENTS.md row and a "Resuming" table in `init` (and `join`), from what the repo and the machine show. |
 | P5 | DHCP test wrong | `hub.md` decides IPv4 and IPv6 separately, ignores link-local, leaves SLAAC to the kernel, covers the on-link gateway (/32). |
 | P6 | First switch kills the session | `nixos-rebuild boot` and a reboot, as the last step; the user is told how to open a terminal in i3 and how to boot the previous generation. |
@@ -46,11 +46,6 @@ VM tests included (CI run 38084260057, one runner per VM test).
 ---
 
 ## Still open
-
-### P3. Does Claude Code's `!` give a terminal?
-
-The docs no longer rely on it. Checking it once (`! tty`) would tell whether
-`!` can be offered as a shortcut for the prompts.
 
 ### Deferred (bigger changes, later)
 

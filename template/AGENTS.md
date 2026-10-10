@@ -40,8 +40,8 @@ Look at `network.nix` and this machine's name (`hostname`):
 - **Build before asking the user to switch.**
 - **Secrets stay out of the chat**: passwords and passphrases are typed by the
   user, in a separate terminal, never by you. Give them the exact command.
-  (`! <command>` in Claude Code may not give a real terminal: don't use it for
-  anything that prompts.)
+  (`! <command>` in Claude Code gives no terminal: don't use it for anything
+  that prompts.)
 
 ## How to work (adaptable)
 

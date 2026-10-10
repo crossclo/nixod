@@ -11,8 +11,8 @@ was interrupted: see **Resuming** at the end.
 command needs `--extra-experimental-features "nix-command flakes"`.
 
 Steps where the user types something (a login, a password) run **in a
-separate terminal**: give them the exact command. `! <command>` may not give
-a real terminal; passwords never go through the chat.
+separate terminal**: give them the exact command. `! <command>` gives no
+terminal: don't use it for prompts. Passwords never go through the chat.
 
 0. **GitHub and the clone** (the user, in a separate terminal):
    `nix run nixpkgs#gh -- auth login`: GitHub.com, **HTTPS**, yes to

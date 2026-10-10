@@ -19,8 +19,8 @@ installed either: `gh ...` means `nix run nixpkgs#gh -- ...`.
 **The user's terminal.** Some steps need the user to type something (a login,
 a password, accepting a host key). Ask them to run those **in a separate
 terminal, in the repo**, and give them the exact command. `! <command>` in
-Claude Code may not give the command a real terminal: don't rely on it for
-prompts. Passwords never go through the chat.
+Claude Code gives no terminal (`! tty` says "not a tty"): don't use it for
+anything that prompts. Passwords never go through the chat.
 
 **Order matters.** The steps that can end your session (logging out,
 rebooting) come last. From step 6 to step 9 the hub's private keys live in

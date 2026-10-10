@@ -94,6 +94,24 @@ running_rev() {
   printf '%s' "$rev"
 }
 
+# network_json_at <repo> <commit>: network.nix at <commit>, as JSON, evaluated
+# as untrusted code: alone in an empty directory, in restricted mode (it can
+# read nothing else and fetch nothing), no search path, no import from
+# derivation. For a join request's network.nix, before anyone has read it.
+network_json_at() {
+  local dir rc=0
+  dir=$(mktemp -d)
+  if git -C "$1" show "$2:network.nix" >"$dir/network.nix" 2>/dev/null; then
+    NIX_PATH='' nix_ eval --json --option nix-path "" --option restrict-eval true \
+      --option allowed-uris "" --option allow-import-from-derivation false \
+      -I "$dir" --file "$dir/network.nix" || rc=1
+  else
+    rc=1
+  fi
+  rm -rf "$dir"
+  return $rc
+}
+
 # signed_by <repo> <commit> <signers>: is <commit> signed by a key in <signers>?
 signed_by() {
   git -C "$1" -c gpg.ssh.allowedSignersFile="$3" verify-commit "$2" >/dev/null 2>&1
@@ -146,6 +164,22 @@ verify() {
     return 1
   fi
   rm -rf "$dir"
+}
+
+# check_base <repo> <rev>: before signing a commit on top of <rev>. A signed
+# commit vouches for its whole tree, so <rev> must be something this machine
+# would apply: the running commit, or verified on top of it. Otherwise
+# (unsigned commits pushed to GitHub, or signed by an unknown key), refuses.
+check_base() {
+  local repo=$1 rev cur reason
+  rev=$(git -C "$repo" rev-parse "$2")
+  cur=$(running_rev)
+  [[ -n $cur ]] || cur=$(git -C "$repo" rev-parse HEAD)
+  [[ $rev == "$cur" ]] && return 0
+  reason=$(verify "$repo" "$cur" "$rev" "$NIXOD_SIGNERS") || die "refusing to sign on top of $2: $reason.
+Signing would vouch for it. Show the user what it changes, from the running commit:
+  git diff $cur $rev
+and only go on once they have read it and say it is theirs (nixod doc change)."
 }
 
 # expand_home <path>: ~/x → $HOME/x

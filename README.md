@@ -82,7 +82,9 @@ since, and refuses those from machines removed since.
 
 A signed change vouches for everything under it, including a join request's
 unsigned commits. So **the review is what protects you**: whatever a trusted
-machine approves, every machine applies. `nixod review` shows what a join
+machine approves, every machine applies. nixod refuses to sign on top of
+commits no trusted machine signed (someone else's push to GitHub): your agent
+shows them to you first, and you decide. `nixod review` shows what a join
 request adds, the folders the new machine gets, and flags anything else it
 changes; read it before saying "approve".
 

@@ -65,6 +65,9 @@ if [[ $build == 1 ]]; then
   run nix_ build --no-link ".#nixosConfigurations.$hub.config.system.build.toplevel"
 fi
 
+step "Check $NIXOD_BRANCH is verified (the signed commit vouches for it too)"
+[[ $DRY_RUN == 1 ]] || check_base . HEAD
+
 step "Commit, signed by this machine"
 run git commit --quiet -S -m "nixod: remove $name"
 

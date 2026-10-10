@@ -46,13 +46,18 @@ terminal: don't use it for prompts. Passwords never go through the chat.
    reboots, which ends your session. Before, tell the user: after the
    reboot, Super+Return opens a terminal (start the agent again in the repo
    for step 7); if the new system doesn't boot, pick the previous generation
-   in the boot menu. Then the user runs:
+   in the boot menu. Then the user runs, in the repo:
 
    ```sh
-   git switch main && git pull
-   sudo nixos-rebuild boot --flake .#<name>
+   nix run .#nixod -- update --first <name>
    reboot
    ```
+
+   `update --first` checks the approval like every machine checks updates:
+   signed by a host listed in the `network.nix` this machine's own request
+   saw. Then it switches the clone to `main` and makes the new system the boot
+   default (`nixos-rebuild boot`, it asks for sudo). Never `git pull` and
+   build `main` without it: nothing else checks what GitHub serves.
 7. **After the reboot:** `nixod status` shows the hub among the Syncthing
    peers, and the folders start arriving. From now on, updates come with
    `nixod update`. Offer a passphrase for the key, as in `nixod doc init`

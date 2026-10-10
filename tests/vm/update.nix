@@ -108,6 +108,11 @@ pkgs.testers.runNixOSTest {
 
     # The hub with the identity install-hub would have put there.
     hub = machine "hub" {
+      # The console password install-hub would have staged.
+      users.users.alice = {
+        hashedPasswordFile = lib.mkForce null;
+        initialPassword = "console";
+      };
       environment.etc."ssh/ssh_host_ed25519_key" = {
         source = "${keys}/hub/etc/ssh/ssh_host_ed25519_key";
         mode = "0600";
@@ -184,8 +189,26 @@ pkgs.testers.runNixOSTest {
         assert "this is an SSH session" in out, out
         hub.fail("test -e /var/lib/nixod/trust-once")
 
+    with subtest("trust-once without a login session (a service) is refused"):
+        out = hub.fail(f"nixod trust-once '{stranger}' 2>&1")
+        assert "not in a login session" in out, out
+
     with subtest("trust-once from the console accepts exactly one update"):
-        hub.succeed(f"nixod trust-once '{stranger}'")
+        # As recover.md says: log in on the console as the user, sudo -i, run it.
+        hub.wait_for_unit("getty@tty1.service")
+        hub.wait_until_tty_matches("1", "login: ")
+        hub.send_chars("alice\n")
+        hub.wait_until_tty_matches("1", "Password: ")
+        hub.send_chars("console\n")
+        hub.wait_until_succeeds("loginctl list-sessions --no-legend | grep -q 'alice.*tty1'")
+        hub.send_chars("sudo -i\n")
+        hub.wait_until_tty_matches("1", "password for alice")
+        hub.send_chars("console\n")
+        # root's shell, on the pseudo-terminal sudo opened (use_pty).
+        hub.wait_until_succeeds("ps -eo user,tty,comm --no-headers | grep -Eq '^root +pts/[0-9]+ +bash$'")
+        hub.send_chars(f"nixod trust-once '{stranger}' >/tmp/trust-once.log 2>&1\n")
+        hub.wait_for_file("/var/lib/nixod/trust-once")
+        hub.succeed("grep -q 'local console session' /tmp/trust-once.log")
         t1 = push("new-host-joins", key="stranger")
         assert f"applied {t1}" in hub_update(ok=True)
         hub.fail("test -e /var/lib/nixod/trust-once")

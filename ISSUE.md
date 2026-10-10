@@ -9,7 +9,9 @@ Sources:
   user's agent through a whole setup and checked every step against the
   scripts and modules (nothing was run);
 - what was found while building nixod (phases 1 to 6);
-- the review of the walkthrough's fixes (2026-10-10).
+- the review of the walkthrough's fixes (2026-10-10);
+- a second paper review of every flow by a fresh agent (2026-10-11); its
+  report stopped after its third finding (R1–R3 below), the rest was lost.
 
 ---
 
@@ -44,6 +46,9 @@ VM tests included (CI run 38084260057, one runner per VM test).
 | P4 | (deferred) `nixod init-status` | Done (2026-10-11): checks every init step against the repo, the staging dir, GitHub and the VPS, prints the step to continue at; `--offline`. Tested offline in `tests/cli.nix`. |
 | P5, P7 | (deferred) probe summary and warnings | Done (2026-10-11): `probe` adds a `summary` computed locally by `probe-summary.jq` (IPv4/IPv6 method, gateway outside the subnet, disk, warnings for memory, arch, several disks); `--from-json` re-summarizes a saved probe. Tested on two sample probes. |
 | — | (deferred) confirmation for each use of the key | Done (2026-10-11): `nixod.home.ssh.confirm` (`AddKeysToAgent confirm`, x11-ssh-askpass, the ssh-agent started in the graphical session). Only useful with a passphrase. Evaluated in the checks, never run on a desktop (see T5). |
+| R1 | Signing on top of unverified commits: `approve`, `remove`, a `change` commit, the recovery commit, and the old "sign on top" advice all vouched for whatever was on `main`, turning a GitHub takeover into a signed update | `approve` and `remove` refuse unless what they sign on top of verifies (`check_base`); `change` runs `nixod check` before `git pull`, and a rejected update is shown to the user (accept explicitly, or undo it in a signed commit); `recover` compares `main` with the hub's running commit first. A new host's first build goes through `nixod update --first <name>`, which verifies the approval against its own join request's `network.nix`. |
+| R2 | `nixod review` evaluated the request's `network.nix` as plain Nix: it could read local files (the nixod key) and send them out | The request's `network.nix` is evaluated alone in an empty directory, in restricted mode (no file reads, no fetches, no search path, no import from derivation); `network.nix` must be plain data. |
+| R3 | `trust-once` refused every pseudo-terminal, and `sudo -i` (the documented way to become root on the console) runs on one: recovery couldn't complete | It checks the login session instead (logind's `Remote=no`, kept through sudo). The VM test now does the documented path: login on tty1, `sudo -i`, `nixod trust-once`; and checks a service without a session is refused. |
 | N1 | (new) A machine that is behind rejected commits signed by machines that joined since, and accepted ones signed by machines removed since | Trust follows the history: each signed commit that changes `network.nix` updates the trusted keys for the commits after it (`verify` in `lib.sh`, tested in `tests/update.nix`). |
 
 ---

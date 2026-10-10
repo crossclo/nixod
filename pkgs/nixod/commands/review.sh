@@ -46,15 +46,11 @@ base=refs/remotes/origin/$NIXOD_BRANCH
 fork=$(git merge-base "$base" "$head") || die "the request has no history in common with $NIXOD_BRANCH"
 info "request: $head"
 
-network_at() { # network_at <commit>: its network.nix, as JSON
-  local f
-  f=$(mktemp)
-  git show "$1:network.nix" >"$f"
-  nix_ eval --json --file "$f"
-  rm -f "$f"
-}
-net_before=$(network_at "$fork")
-net_after=$(network_at "$head")
+# The request's network.nix is untrusted until reviewed: evaluated in
+# restricted mode (network_json_at), never as plain Nix.
+net_before=$(network_json_at . "$fork") || die "can't evaluate network.nix at $fork"
+net_after=$(network_json_at . "$head") ||
+  die "the request's network.nix doesn't evaluate on its own (it may only be plain data: no imports, no file reads, no fetches)"
 before=$(jq -r '.machines | keys[]' <<<"$net_before" | sort)
 after=$(jq -r '.machines | keys[]' <<<"$net_after" | sort)
 mapfile -t added < <(comm -13 <(printf '%s\n' "$before") <(printf '%s\n' "$after") | grep . || true)
@@ -102,9 +98,7 @@ if [[ $build == 1 ]]; then
   tree=$(mktemp -d)
   git worktree add --quiet --detach "$tree/repo" "$head"
   trap 'git worktree remove --force "$tree/repo"; rm -rf "$tree"' EXIT
-  # shellcheck disable=SC2016 # a Nix expression, not shell
-  hub=$(nix_ eval --raw --file "$tree/repo/network.nix" machines \
-    --apply 'ms: builtins.head (builtins.filter (n: ms.${n}.role == "hub") (builtins.attrNames ms))')
+  hub=$(jq -r '[.machines | to_entries[] | select(.value.role == "hub") | .key] | first' <<<"$net_after")
   for m in "${added[@]}" "$hub"; do
     info "building $m"
     nix_ build --no-link "$tree/repo#nixosConfigurations.$m.config.system.build.toplevel"

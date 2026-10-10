@@ -204,6 +204,29 @@ pkgs.runCommand "nixod-update"
     rejects "is not signed by a trusted machine"
     test "$(revision)" = "$n2"
 
+    # ---- update --first: a new host trusts its own join request ----
+    git init -q --bare origin2.git
+    git clone -q origin2.git tower2 2>/dev/null
+    ( cd tower2
+      echo "{ machines = { hub = { role = \"hub\"; }; tower = { role = \"host\"; userKey = \"$(cat ../tower.pub)\"; }; }; }" >network.nix
+      git add network.nix && git -c user.signingkey="$TMPDIR/tower" commit -q -S -m base && git push -q origin HEAD:main )
+    git clone -q origin2.git laptop2 2>/dev/null
+    ( cd laptop2
+      git switch -q -c join/laptop
+      sed -i "s|}; }; }|}; laptop = { role = \"host\"; userKey = \"$(cat ../laptop.pub)\"; }; }; }|" network.nix
+      git commit -q -am "nixod: join laptop" && git push -q origin join/laptop )
+    first() { (cd laptop2 && NIXOD_STATE=$TMPDIR/first-state nixod update --first laptop) >cmd.log 2>&1; }
+    # An unsigned "approval" is refused.
+    ( cd tower2 && git fetch -q origin join/laptop && git merge -q --no-ff -m unsigned FETCH_HEAD && git push -q origin HEAD:main )
+    if first; then echo "an unsigned approval should be refused"; cat cmd.log; exit 1; fi
+    expect "is not signed by a trusted machine" cmd.log
+    # tower's signed approval is accepted, and applied.
+    ( cd tower2 && git -c user.signingkey="$TMPDIR/tower" commit -q -S --allow-empty -m "nixod: approve join request laptop" && git push -q origin HEAD:main )
+    : >applied
+    first || { echo "the signed approval should be accepted"; cat cmd.log; exit 1; }
+    expect "$(git -C tower2 rev-parse HEAD)" applied
+    test "$(git -C laptop2 symbolic-ref --short HEAD)" = main
+
     # ---- trust-once refuses SSH sessions, hosts and non-root ----
     key=$(cat stranger.pub)
     SSH_CONNECTION="198.51.100.7 50000 203.0.113.10 22" NIXOD_ROLE=hub run_fails "this is an SSH session" nixod trust-once "$key"

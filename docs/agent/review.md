@@ -3,7 +3,9 @@
 Mode: the user asks to review a join request (a pull request, or a
 `join/<name>` branch), on a machine already in the network.
 
-1. **Review:** `nixod review <pr number>` (in the repo). It changes nothing in
+1. **Review:** `nixod review <pr number>` (in the repo). It reads the request's
+   `network.nix` as untrusted code (restricted evaluation: no file reads, no
+   fetches), so a `network.nix` must be plain data. It changes nothing in
    the working tree. It shows the machines added or removed and the folders
    each new one gets, the `network.nix` diff and the files touched, then
    builds the new host and the hub.

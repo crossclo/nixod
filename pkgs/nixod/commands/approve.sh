@@ -47,6 +47,8 @@ step "Check the clone"
 run git switch --quiet "$NIXOD_BRANCH"
 run git merge --quiet --ff-only "refs/remotes/origin/$NIXOD_BRANCH" ||
   die "local $NIXOD_BRANCH has commits that are not pushed: push them first"
+step "Check $NIXOD_BRANCH is verified (the merge vouches for it too)"
+[[ $DRY_RUN == 1 ]] || check_base . HEAD
 
 step "Merge $head, signed by this machine"
 if ! run git merge --quiet --no-ff -S -m "nixod: approve join request $id" "$head"; then

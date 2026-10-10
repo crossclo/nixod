@@ -209,9 +209,9 @@ by hand on a machine.
 | `nixod install-hub <name> root@<ip>` | first host | checks the staged Syncthing ID, host key and deploy key match `network.nix` and the console password is staged; adds the deploy key on GitHub (`gh repo deploy-key add --read-only`), runs `nixos-anywhere --extra-files <staging> --chown …`, puts the hub's host key in `known_hosts`, then wipes the staging dir |
 | `nixod join` | new host | checks the clone is at `settings.repo.path`; branch `join/<name>`, commit, push, `gh pr create` (`--no-pr`: push only) |
 | `nixod review <pr\|branch>` | trusted host | fetches the request, shows the machines added/removed and the folders each new one gets, the `network.nix` diff and the files touched; warns about changes to other machines' entries or folder options, and (with the full diff) about any file outside `network.nix` and the new host's `hosts/<name>/`; builds the new host and the hub; records the reviewed commit |
-| `nixod approve <pr\|branch>` | trusted host | refuses unless the request is exactly the reviewed commit; `git merge --no-ff -S` locally, push. GitHub marks the PR merged |
+| `nixod approve <pr\|branch>` | trusted host | refuses unless the request is exactly the reviewed commit, and unless `main` verifies (a signed merge vouches for it too); `git merge --no-ff -S` locally, push. GitHub marks the PR merged |
 | `nixod check` | hosts (timer) | fetch + verify; notifies if a verified update is waiting |
-| `nixod update` | hosts | verify, fast-forward, `nixos-rebuild switch` |
+| `nixod update` | hosts | verify, fast-forward, `nixos-rebuild switch`. `--first <name>`, right after a join: trusts the hosts of its own join request's `network.nix`, then `nixos-rebuild boot` |
 | `nixod remove <name>` | trusted host | after the entry is deleted from `network.nix`: deletes `hosts/<name>/`, builds the hub, signed commit, push |
 | `nixod status` | any | running commit vs `main`, Syncthing peers, last hub update |
 | `nixod doc [<name>]` | any | prints a playbook of this nixod version (no name: lists them) |
@@ -248,6 +248,13 @@ new = origin/<branch> after fetch
   commit. A commit can't vouch for itself by adding its own key: its
   network.nix only counts for the commits after it, once it is itself signed
   by a key trusted before it.
+- **Never sign on top of what doesn't verify.** A signed commit vouches for
+  its whole tree, so `approve` and `remove` refuse unless their base passes
+  the same check (`check_base`), and the playbooks check before pulling.
+  Unverified commits on GitHub are shown to the user, who accepts them
+  explicitly or undoes them in a signed commit.
+- A join request's `network.nix` is read in Nix's restricted mode (alone in
+  a directory, no fetches): `network.nix` is plain data.
 - Trust follows the history, so a machine that is behind (a laptop off for
   weeks, or the hub when two commits land within one timer period) accepts a
   commit signed by a host added since, and refuses one signed by a host
@@ -307,8 +314,12 @@ holds the only copy of the data.
   **once**, then deletes the file, even if the check fails.
 - The new host pushes its commit. The hub applies it, and the host is in
   `network.nix` for good.
-- The command refuses to run outside a local console (it checks that the session
-  is not an SSH session), so it can only be used from the console.
+- The command refuses to run outside a local console: no SSH variables, and
+  the login session (which `sudo -i` keeps) must be local (logind's
+  `Remote=no`), so it can only be used from the console.
+- Before the recovery commit, the agent compares `main` with the commit the
+  hub runs (`nixod status` on the console): the recovery commit, signed by the
+  trust-once key, would vouch for anything unsigned in between.
 
 **Not implemented, on purpose: a recovery key.** The idea was a key not tied to a
 machine, its public part in `allowed_signers`, its private part in the repo

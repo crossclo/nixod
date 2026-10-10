@@ -1,5 +1,7 @@
 # Every machine in your network. Empty until the setup (init) adds the
 # first host and the hub. Each machine needs a hosts/<name>/ directory.
+# Plain data only: no imports, no file reads (a join request's network.nix is
+# read as untrusted code, in Nix's restricted mode).
 #
 # machines.<name> for the hub (exactly one):
 #   role = "hub"; address = "<public IP or DNS name>";

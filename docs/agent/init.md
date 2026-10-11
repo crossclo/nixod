@@ -127,6 +127,10 @@ ssh-copy-id -i ~/.ssh/nixod_ed25519.pub root@<ip>  # 2
 Then check from your shell:
 `ssh -i ~/.ssh/nixod_ed25519 -o BatchMode=yes root@<ip> true`.
 
+That host key, now in `~/.ssh/known_hosts`, is what `nixod install-hub`
+holds the VPS to: it refuses to install if the key isn't there, or if the
+VPS presents another one.
+
 ## 5. Look at the VPS
 
 `nixod probe root@<ip>` prints JSON (read-only). Write `hosts/<hub>/default.nix`

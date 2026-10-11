@@ -12,6 +12,12 @@
 #             hub's host key in ~/.ssh/known_hosts in place of the provider
 #             OS's, and deletes the staging dir.
 # Extra nixos-anywhere flags go after `--` (they come last, so they win).
+#
+# Host key: nixos-anywhere turns host key checking off. install-hub runs it
+# with the VPS's host key pinned instead: the key the user checked (init
+# step 4) must be in ~/.ssh/known_hosts, and every SSH connection must
+# present it. The kexec installer keeps the provider OS's host keys, so the
+# same key holds before and after the kexec.
 set -euo pipefail
 # shellcheck source=../lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/../lib.sh"
@@ -82,10 +88,42 @@ cd "$flake"
 key_opts=()
 [[ -e $key ]] && key_opts=(-i "$key")
 
+# pin_host_key: puts an `ssh` first on PATH that checks the VPS's host key
+# against the one in ~/.ssh/known_hosts. ssh keeps the first value given for
+# an option, so these come before nixos-anywhere's own (which turn checking
+# off). nix copy and ssh-copy-id run that same `ssh`.
+pin_host_key() {
+  local host=${target#*@} real dir
+  step "Pin the VPS's host key ($host, from ~/.ssh/known_hosts)"
+  if [[ $DRY_RUN == 1 ]]; then
+    info "ssh -o StrictHostKeyChecking=yes -o UserKnownHostsFile=<$host's entries> ..."
+    return
+  fi
+  dir=$(mktemp -d)
+  # shellcheck disable=SC2064 # expand now: the path is known
+  trap "rm -rf '$dir'" EXIT
+  ssh-keygen -F "$host" 2>/dev/null | grep -v '^#' >"$dir/known_hosts" || true
+  [[ -s $dir/known_hosts ]] ||
+    die "$host's host key isn't in ~/.ssh/known_hosts. The user connects once (ssh root@$host), compares the fingerprint with the provider's panel or console, and accepts it (nixod doc init, step 4)."
+  real=$(command -v ssh)
+  cat >"$dir/ssh" <<EOF
+#!/bin/sh
+exec $real -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$dir/known_hosts -o GlobalKnownHostsFile=/dev/null "\$@"
+EOF
+  chmod +x "$dir/ssh"
+  PATH=$dir:$PATH
+  info "$(ssh-keygen -lf "$dir/known_hosts" | head -1)"
+  # nixos-anywhere retries a failing first connection forever: try it here.
+  ssh -o BatchMode=yes -o ConnectTimeout=15 "${key_opts[@]}" "$target" true ||
+    die "can't log into $target with the checked host key and this machine's key. If the host key changed, find out why before going on (it should only change when the OS is reinstalled)."
+}
+
 stage_hardware() {
   local hw=hosts/$name/hardware-configuration.nix
 
   confirm "This replaces the OS running on $target with the NixOS installer, in RAM only (the disk is not touched; a reboot brings the provider's OS back)." "$name"
+
+  pin_host_key
 
   step "Boot the NixOS installer on $target (kexec) and generate $hw"
   run nixos-anywhere \
@@ -186,6 +224,8 @@ Make a new one and publish it before installing:
     }
   fi
   info "$owner"
+
+  pin_host_key
 
   step "Install (disko wipes the disk, then nixos-install, then reboot)"
   run nixos-anywhere \

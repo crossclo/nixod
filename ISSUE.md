@@ -65,22 +65,14 @@ VM tests included (CI run 38084260057, one runner per VM test).
 | Q12 | `nixod remove` retry after a refused push didn't work; no catch-up first | remove.md catches up first; `remove` refuses unless `main` is GitHub's, and gives the real retry. |
 | Q13 | `approve`/`join` printed outdated next steps | Both print `update --first <name>`, then reboot. |
 | q1–q13 | Minor | AGENTS row after the first reboot; `approve` resets after a refused push; existing Syncthing config not ported; probe saved outside the repo; flakes flag in commands handed to the user; `ssh -t` for `passwd`; `remove` refuses this machine and the last host; remove.md on what happens to folders; review.md on building the request vs the merge; README CI wording; moving to a new VPS vs reinstalling; PLAN drift; sudo-user providers. Also: `check_base` with no running revision requires the base to be signed; change.md fast-forwards to the verified commit instead of `git pull`. |
+| S1 | nixos-anywhere connected with host key checking off, so the key checked at init step 4 was never enforced during the install | `install-hub` pins it: nixos-anywhere runs behind an `ssh` that puts `StrictHostKeyChecking=yes` and the VPS's entries from `~/.ssh/known_hosts` first (ssh keeps the first value of an option; `nix copy` and `ssh-copy-id` go through it too). The kexec installer keeps the provider OS's host keys, so the same key holds before and after the kexec. `install-hub` refuses when the key is unknown, and tries one connection first, since nixos-anywhere would retry a mismatch forever. VM-tested: unknown key and wrong key refused. |
 | N1 | (new) A machine that is behind rejected commits signed by machines that joined since, and accepted ones signed by machines removed since | Trust follows the history: each signed commit that changes `network.nix` updates the trusted keys for the commits after it (`verify` in `lib.sh`, tested in `tests/update.nix`). |
 
 ---
 
 ## Still open
 
-### S1. nixos-anywhere doesn't check the VPS's host key
-
-`install-hub` runs nixos-anywhere, which connects with
-`StrictHostKeyChecking=no` and `UserKnownHostsFile=/dev/null` (the host key
-changes after kexec, so it can't pin it). The fingerprint the user checks at
-init step 4 is only enforced for `nixod probe`. A machine in the middle at
-install time could see what is installed, the staged hub keys included. A
-fix needs nixos-anywhere to check the provider OS's key on the first
-connection (an upstream change, or a wrapper running the first step with
-`StrictHostKeyChecking=yes`).
+Nothing known. What is left is testing on real machines (below).
 
 ---
 

@@ -142,6 +142,20 @@ pkgs.testers.runNixOSTest {
     pub = deployer.succeed("cat /root/.ssh/id_ed25519.pub").strip()
     target.succeed(f"install -d -m 700 /root/.ssh && echo '{pub}' >> /root/.ssh/authorized_keys")
 
+    with subtest("a VPS whose host key isn't known is refused"):
+        out = deployer.fail("cd /tmp && nixod install-hub hub root@target --stage hardware --yes -- -i /root/.ssh/id_ed25519 2>&1")
+        assert "host key isn't in ~/.ssh/known_hosts" in out, out
+    # The user checked the VPS's host key (init step 4); here, taken as is.
+    deployer.succeed("ssh-keyscan -t ed25519 target >> /root/.ssh/known_hosts 2>/dev/null")
+
+    with subtest("a VPS presenting another host key is refused"):
+        deployer.succeed("cp /root/.ssh/known_hosts /root/known_hosts.good")
+        # Another key for target: the hub's staged one stands in for an impostor.
+        deployer.succeed("echo 'target ${public.sshHostKey}' > /root/.ssh/known_hosts")
+        out = deployer.fail("cd /tmp && nixod install-hub hub root@target --stage hardware --yes -- -i /root/.ssh/id_ed25519 2>&1")
+        assert "with the checked host key" in out, out
+        deployer.succeed("cp /root/known_hosts.good /root/.ssh/known_hosts")
+
     # The staged identity, copied from the store (read-only modes on purpose:
     # install-hub must fix them).
     deployer.succeed("cp -r ${identity}/staging /tmp/staging && chmod -R u+w /tmp/staging")

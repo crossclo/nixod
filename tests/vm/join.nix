@@ -44,17 +44,17 @@ let
         role = "host";
         syncthingId = "TOWERAA-AAAAAAA-AAAAAAA-AAAAAAA-AAAAAAA-AAAAAAA-AAAAAAA-AAAAAAA";
         userKey = readKey "${keys}/tower.pub";
-        folders.docs = "/home/alice/sync/docs";
+        folders.photos = "/home/alice/sync/photos";
       };
     };
-    folders.docs = { };
+    folders.photos = { };
   };
   # What laptop's join request adds.
   joined = lib.recursiveUpdate base {
     machines.laptop = {
       role = "host";
       inherit (laptop) syncthingId userKey;
-      folders.docs = "/home/alice/docs";
+      folders.photos = "/home/alice/photos";
     };
   };
   nixFile = name: value: pkgs.writeText name (lib.generators.toPretty { } value);

@@ -9,7 +9,7 @@
 #
 # machines.<name> for a host:
 #   role = "host"; syncthingId = "..."; userKey = "ssh-ed25519 ...";
-#   folders = { docs = "/home/<user>/sync/docs"; };   # folder name → path here
+#   folders = { photos = "/home/<user>/sync/photos"; };   # folder name → path here
 #
 # folders.<name>: options shared by every machine that has the folder
 # (Syncthing folder settings), plus `hub.*` for the hub only:

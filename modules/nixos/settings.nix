@@ -33,7 +33,7 @@ in
         email = fill "Email address (git identity).";
       };
 
-      timeZone = fill "Time zone, e.g. \"Europe/Paris\".";
+      timeZone = fill "Time zone, e.g. \"Europe/Berlin\".";
 
       locale = mkOption {
         type = types.str;

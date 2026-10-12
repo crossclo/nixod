@@ -44,10 +44,10 @@ let
         role = "host";
         syncthingId = "TOWERAA-AAAAAAA-AAAAAAA-AAAAAAA-AAAAAAA-AAAAAAA-AAAAAAA-AAAAAAA";
         userKey = readKey "${keys}/tower.pub";
-        folders.docs = "/home/alice/sync/docs";
+        folders.photos = "/home/alice/sync/photos";
       };
     };
-    folders.docs = { };
+    folders.photos = { };
   };
   settings = lib.recursiveUpdate (import ../fixture/settings.nix) {
     repo.url = "git@github:nixod.git";

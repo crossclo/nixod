@@ -7,7 +7,7 @@
     ./nixod/syncthing.nix
     ./nixod/ssh.nix
     ./nixod/update.nix
-    ./profiles/desktop-i3.nix
+    ./profiles/x11.nix
     ./profiles/audio.nix
     ./profiles/networking.nix
     ./profiles/zram.nix

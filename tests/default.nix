@@ -77,7 +77,8 @@ in
   # install-hub on a blank disk; the hub boots with its staged identity.
   vm-install-hub = import ./vm/install-hub.nix { inherit self inputs pkgs; };
 
-  # A dummy host with every profile on, and a dummy hub.
+  # A dummy host with every profile and every starter file on, and a dummy
+  # hub.
   eval-host = evaluates "host" fixture.nixosConfigurations.tower;
   eval-hub = evaluates "hub" fixture.nixosConfigurations.hub;
   fixture-settings = fixture.checks.${system}.nixod-settings;
@@ -142,7 +143,7 @@ in
       && agent.Install.WantedBy == [ "graphical-session.target" ]
     ) "nixod.home.ssh.confirm doesn't set the agent up for confirmations";
 
-  # Overriding one default value keeps the others.
+  # Overriding one value nixod sets keeps the others.
   defaults-override =
     let
       sys = fixture.nixosConfigurations.tower.config;
@@ -151,11 +152,55 @@ in
     check "defaults-override" (
       sys.zramSwap.memoryPercent == 25
       && sys.zramSwap.algorithm == "zstd"
-      && home.programs.kitty.settings.background_opacity == "1.0"
-      && home.programs.kitty.settings.cursor_shape == "beam"
-      && home.programs.zsh.shellAliases.ll == "eza -l"
-      && home.programs.zsh.shellAliases.ls == "eza --icons"
-      && home.nixod.theme.colors.yellow == "d4a017"
-      && home.nixod.theme.colors.bg == "faf3e1"
+      && home.programs.git.settings.user.email == "alice@work.example"
+      && home.programs.git.settings.user.name == "Alice Example"
     ) "an instance override replaced more than the one value it set";
+
+  # The options of the old built-in profiles fail with what to do instead.
+  removed-options =
+    let
+      fails =
+        module:
+        !(builtins.tryEval
+          (fixture.nixosConfigurations.tower.extendModules { modules = [ module ]; })
+          .config.system.build.toplevel.drvPath
+        ).success;
+    in
+    check "removed-options" (
+      fails { nixod.profiles.desktop-i3.enable = true; }
+      && fails { home-manager.users.alice.nixod.home.neovim.enable = false; }
+      && fails { home-manager.users.alice.nixod.theme.colors.bg = "ffffff"; }
+    ) "setting a removed profile option should fail";
+
+  # The starter's Neovim config starts without an error, a file of a
+  # language with a parser open (the treesitter setup runs). Home Manager's
+  # nvim files (init.lua, the plugin pack) are laid out as in a real home.
+  starter-neovim =
+    let
+      home = fixture.nixosConfigurations.tower.config.home-manager.users.alice;
+      nvimFiles =
+        dir: files:
+        lib.concatStrings (
+          lib.mapAttrsToList (name: f: ''
+            mkdir -p "$(dirname "${dir}/${name}")"
+            ln -s ${f.source} "${dir}/${name}"
+          '') (lib.filterAttrs (name: _: lib.hasPrefix "nvim/" name) files)
+        );
+    in
+    pkgs.runCommand "nixod-starter-neovim"
+      {
+        nativeBuildInputs = [
+          home.programs.neovim.finalPackage
+          pkgs.git # every host has it (core.nix); gitsigns wants it
+        ];
+      }
+      ''
+        export HOME=$TMPDIR XDG_CONFIG_HOME=$TMPDIR/config XDG_DATA_HOME=$TMPDIR/data XDG_STATE_HOME=$TMPDIR/state
+        ${nvimFiles "$XDG_CONFIG_HOME" home.xdg.configFile}
+        ${nvimFiles "$XDG_DATA_HOME" home.xdg.dataFile}
+        echo '{ a = 1; }' >test.nix
+        nvim --headless test.nix +qa >out 2>&1 || { cat out; exit 1; }
+        if [ -s out ]; then cat out; exit 1; fi
+        touch $out
+      '';
 }

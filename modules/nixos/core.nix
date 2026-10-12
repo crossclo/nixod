@@ -64,13 +64,6 @@ in
 
       nixpkgs.config.allowUnfree = true;
 
-      users.users = lib.optionalAttrs (s.user.name != null) {
-        ${s.user.name}.shell = pkgs.zsh;
-      };
-
-      # Needed at system level for zsh to be a valid login shell.
-      programs.zsh.enable = true;
-
       # Runs dynamically linked binaries that weren't built by Nix
       # (downloaded tools, vendor binaries, IDE toolboxes...).
       programs.nix-ld.enable = true;

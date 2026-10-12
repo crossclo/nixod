@@ -15,7 +15,11 @@ under it: never sign on top of commits nobody verified.
    trusted machine signed; see "A rejected update" below before anything
    else.
 2. **Edit:**
-   - one machine: `hosts/<name>/`; every host's user setup: `home/`;
+   - one machine: `hosts/<name>/`; every host's user setup: `home/`; every
+     host's system setup (login shell, fonts, the desktop's system half):
+     `system/`. These are the user's own files: edit the setting where it
+     is. Something new from nixod's starter: `nixod starter copy <file>`, and
+     `nixod starter diff` to see what changed in it since it was copied;
    - a synced folder: in `network.nix`, under `folders` and in each machine's
      entry that should have it;
    - newer packages: `nix flake update` (everything) or `nix flake update

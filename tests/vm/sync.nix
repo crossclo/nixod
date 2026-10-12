@@ -33,20 +33,20 @@ let
         syncthingId = idOf "a";
         userKey = key "A";
         folders = {
-          docs = "/home/alice/sync/docs";
-          projects = "/home/alice/sync/projects";
+          photos = "/home/alice/sync/photos";
+          notes = "/home/alice/sync/notes";
         };
       };
       b = {
         role = "host";
         syncthingId = idOf "b";
         userKey = key "B";
-        folders.docs = "/home/alice/docs";
+        folders.photos = "/home/alice/photos";
       };
     };
     folders = {
-      docs = { };
-      projects = { };
+      photos = { };
+      notes = { };
     };
   };
 
@@ -122,18 +122,18 @@ pkgs.testers.runNixOSTest {
 
     with subtest("folders exist and belong to the user"):
         a.succeed("test \"$(stat -c %U /home/alice/sync)\" = alice")
-        a.succeed("test \"$(stat -c %U /home/alice/sync/docs)\" = alice")
-        b.succeed("test \"$(stat -c %U /home/alice/docs)\" = alice")
+        a.succeed("test \"$(stat -c %U /home/alice/sync/photos)\" = alice")
+        b.succeed("test \"$(stat -c %U /home/alice/photos)\" = alice")
 
     with subtest("a file written on a reaches b through the hub"):
-        a.succeed("su alice -c 'echo hello-from-a > /home/alice/sync/docs/hello.txt'")
-        hub.wait_until_succeeds("grep -q hello-from-a /var/lib/syncthing/docs/hello.txt", timeout=300)
-        b.wait_until_succeeds("grep -q hello-from-a /home/alice/docs/hello.txt", timeout=300)
+        a.succeed("su alice -c 'echo hello-from-a > /home/alice/sync/photos/hello.txt'")
+        hub.wait_until_succeeds("grep -q hello-from-a /var/lib/syncthing/photos/hello.txt", timeout=300)
+        b.wait_until_succeeds("grep -q hello-from-a /home/alice/photos/hello.txt", timeout=300)
 
     with subtest("a folder only a has reaches the hub, not b"):
-        a.succeed("su alice -c 'echo only-a > /home/alice/sync/projects/p.txt'")
-        hub.wait_until_succeeds("grep -q only-a /var/lib/syncthing/projects/p.txt", timeout=300)
-        b.fail("test -e /home/alice/sync/projects")
+        a.succeed("su alice -c 'echo only-a > /home/alice/sync/notes/p.txt'")
+        hub.wait_until_succeeds("grep -q only-a /var/lib/syncthing/notes/p.txt", timeout=300)
+        b.fail("test -e /home/alice/sync/notes")
 
     with subtest("a and b never connected directly"):
         # lastSeen stays at the epoch for a device never connected to.

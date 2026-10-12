@@ -7,7 +7,7 @@
     email = null; # NIXOD:FILL  git identity
   };
 
-  timeZone = null; # NIXOD:FILL  e.g. "Europe/Paris"
+  timeZone = null; # NIXOD:FILL  e.g. "Europe/Berlin"
   locale = "en_US.UTF-8";
   # extraLocaleSettings = { LC_TIME = "fr_FR.UTF-8"; };
 

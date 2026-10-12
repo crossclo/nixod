@@ -1,10 +1,13 @@
-# Default palette, "Summer Heat" (yellow edition): a LIGHT, warm theme.
+# The palette of the themed files: "Summer Heat" (yellow), light and warm.
+# Not a module: the files that use it import it themselves.
+#
 # Pale yellow cream (never pure white), warm ink, pastel accents from the
 # Summer-Heat theme (Jfeatherstone/i3-themes), with honey yellow as the
 # main accent.
 # Single source of truth for the UI colors: kitty, i3, rofi, dunst,
-# starship, fzf... Values WITHOUT "#": each consumer adds its own prefix.
-# Override any color from the instance: nixod.theme.colors.bg = "ffffff";
+# starship, fzf... (`import ./colors.nix` in each of those files). Values
+# WITHOUT "#": each consumer adds its own prefix. Change one here and every
+# file follows.
 {
   bg = "faf3e1"; # main background, pale yellow cream
   bg-dark = "f2e6c9"; # panels, bars

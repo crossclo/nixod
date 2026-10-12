@@ -1,3 +1,3 @@
 {
-  nixod.home.dev.enable = true;
+  imports = [ ../../../../starter/home/dev.nix ];
 }

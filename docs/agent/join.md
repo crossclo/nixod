@@ -36,7 +36,7 @@ terminal: don't use it for prompts. Passwords never go through the chat.
    request. GitHub's CI checks that every machine still evaluates.
 
    A join request changes `network.nix` and `hosts/<name>/` only. Changes to
-   shared files (`home/`, other hosts) go in their own commit later, from a
+   shared files (`home/`, `system/`, other hosts) go in their own commit later, from a
    trusted machine: the review flags them.
 5. **Tell the user** to ask their agent on a trusted machine to review and
    approve it (`nixod doc review`), and to come back once it's approved.
@@ -49,8 +49,8 @@ terminal: don't use it for prompts. Passwords never go through the chat.
    switch changes the desktop (and often drivers): the running session can't
    survive it, so the new system becomes the boot default and the machine
    reboots, which ends your session. Before, tell the user: after the
-   reboot, Super+Return opens a terminal (start the agent again in the repo
-   for step 7); if the new system doesn't boot, pick the previous generation
+   reboot, open a terminal (Super+Return with the starter's i3) and start the
+   agent again in the repo for step 7; if the new system doesn't boot, pick the previous generation
    in the boot menu. Then the user runs, in the repo:
 
    ```sh

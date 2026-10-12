@@ -1,4 +1,4 @@
-# GTK/Qt/cursor theme: light everywhere, GNOME fallback session included.
+# GTK/Qt/cursor theme: light everywhere, GNOME fallback included.
 {
   config,
   lib,
@@ -10,10 +10,10 @@
 let
   xkb = osConfig.nixod.settings.keyboard.xkb;
   variant = osConfig.nixod.settings.keyboard.xkbVariant;
-  defaults = import ../../../lib/defaults.nix { inherit lib; };
 in
 {
-  config = lib.mkIf config.nixod.home.gtk.enable (defaults {
+  # Desktop hosts only (nixod.profiles.x11).
+  config = lib.mkIf osConfig.nixod.profiles.x11.enable {
     gtk = {
       enable = true;
       theme = {
@@ -60,5 +60,5 @@ in
         ];
       };
     };
-  });
+  };
 }

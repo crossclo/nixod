@@ -1,12 +1,16 @@
-# i3 (X11). Bar = native i3bar (reliable, built-in workspaces, tray on the
+# i3 (X11): i3bar with a powerline status, picom, a themed i3lock.
+#
+# Bar = native i3bar (reliable, built-in workspaces, tray on the
 # primary output), with a powerline status from a small script (i3bar JSON
 # protocol). Compositor: picom.
 #
 # Keybindings: stock i3 (the Home Manager module's defaults). On an AZERTY
 # layout (settings.keyboard.xkb = "fr"), workspaces use the real keysyms of
 # the top row (& é " ' ( - è _ ç à), as i3's config wizard would.
+#
+# Started by nixod.profiles.x11 (greetd → startx → ~/.xsession).
+# needs: home/colors.nix system/desktop.nix system/fonts.nix home/rofi.nix home/terminal.nix home/notifications.nix
 {
-  config,
   lib,
   pkgs,
   osConfig,
@@ -14,10 +18,9 @@
 }:
 
 let
-  c = config.nixod.theme.colors;
+  c = import ./colors.nix;
 
   isAzerty = osConfig.nixod.settings.keyboard.xkb == "fr";
-  defaults = import ../../../lib/defaults.nix { inherit lib; };
 
   # Wallpaper: a file named "wallpaper" or "wallpaper.<ext>" in the user's
   # Pictures directory. Without one, a flat background from the palette.
@@ -38,7 +41,7 @@ let
       | rofi -dmenu -i -p "Session")
     case "$choice" in
       *Lock*)      loginctl lock-session ;;
-      *"Log out"*) i3-msg exit ;;
+      *"Log out"*) ${pkgs.i3}/bin/i3-msg exit ;;
       *Reboot*)    systemctl reboot ;;
       *"Power off"*) systemctl poweroff ;;
     esac
@@ -159,10 +162,9 @@ let
   '';
 in
 {
-  config = lib.mkIf config.nixod.home.i3.enable (
+  # Desktop hosts only (nixod.profiles.x11).
+  config = lib.mkIf osConfig.nixod.profiles.x11.enable (
     lib.mkMerge [
-      # Additive: merges with the instance's own packages, rules and
-      # startup commands.
       {
         home.packages = with pkgs; [
           set-wallpaper
@@ -217,8 +219,8 @@ in
         };
       }
 
-      (defaults {
-        # Generates ~/.xsession (started by startx from the desktop-i3 system
+      {
+        # Generates ~/.xsession (started by startx from nixod's x11 system
         # profile): imports the environment into systemd --user, starts
         # hm-graphical-session.target (→ graphical-session.target → picom/dunst),
         # runs i3, and stops everything cleanly on logout.
@@ -433,7 +435,7 @@ in
             ];
           };
         };
-      })
+      }
     ]
   );
 }

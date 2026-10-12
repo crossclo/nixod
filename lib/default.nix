@@ -1,5 +1,5 @@
-# Builds a nixod instance (settings.nix + network.nix + hosts/ + home/)
-# into nixosConfigurations.
+# Builds a nixod instance (settings.nix + network.nix + hosts/ + system/ +
+# home/) into nixosConfigurations.
 { self, lib }:
 
 let
@@ -97,7 +97,10 @@ in
                 };
               };
             }
-          ];
+          ]
+          # Every host's own system setup (the desktop's system half, the
+          # login shell...), next to home/ for the user setup.
+          ++ optionalFile (root + "/system/default.nix");
 
           hub = [
             inputs.disko.nixosModules.disko

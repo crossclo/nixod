@@ -22,6 +22,8 @@
   nixos-anywhere,
   # The agent playbooks, printed by `nixod doc`.
   docs ? ../../docs/agent,
+  # The starter config files, copied by `nixod starter`.
+  starter ? ../../starter,
 }:
 
 stdenvNoCC.mkDerivation {
@@ -57,6 +59,7 @@ stdenvNoCC.mkDerivation {
     mkdir -p $out/libexec/nixod $out/bin
     cp -r nixod lib.sh commands probe-remote.sh probe-summary.jq $out/libexec/nixod/
     cp -r ${docs} $out/libexec/nixod/docs
+    cp -r ${starter} $out/libexec/nixod/starter
     chmod +x $out/libexec/nixod/nixod $out/libexec/nixod/commands/*.sh
     patchShebangs $out/libexec/nixod/nixod $out/libexec/nixod/commands
     # The system's own nix comes first (it talks to the local daemon).
@@ -86,7 +89,7 @@ stdenvNoCC.mkDerivation {
   '';
 
   meta = {
-    description = "nixod's helper: identities, hub probe and install";
+    description = "nixod's helper: identities, hub probe and install, joins, updates";
     mainProgram = "nixod";
   };
 }

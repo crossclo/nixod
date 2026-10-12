@@ -13,18 +13,18 @@
       syncthingId = "TOWERAA-AAAAAAA-AAAAAAA-AAAAAAA-AAAAAAA-AAAAAAA-AAAAAAA-AAAAAAA";
       userKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPlaceholderTowerUserKey000000000000000000 alice@tower";
       folders = {
-        projects = "/home/alice/sync/projects";
-        docs = "/home/alice/sync/docs";
+        notes = "/home/alice/sync/notes";
+        photos = "/home/alice/sync/photos";
       };
     };
   };
 
   folders = {
-    projects.versioning = {
+    notes.versioning = {
       type = "staggered";
       params.maxAge = "2592000";
     };
-    docs.versioning = {
+    photos.versioning = {
       type = "staggered";
       params.maxAge = "31536000";
     };

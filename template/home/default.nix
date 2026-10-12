@@ -1,14 +1,10 @@
-# Your personal Home Manager setup, applied on every host after nixod's
-# defaults. Imported dotfiles and personal tool sets go here (or in other
-# files of this directory, imported below). For one host only, use
-# hosts/<name>/home.nix.
+# Your Home Manager setup, applied on every host: shell, editor, desktop,
+# dotfiles. nixod only adds git signing and the SSH agent; everything else
+# is here, in files you own. For one host only, use hosts/<name>/home.nix.
 #
-# Everything nixod's profiles set is a default: set the same option here
-# and yours wins, the rest stays. Lists like home.packages add up.
-#   nixod.home.dev.enable = true;              # turn a profile on/off
-#   nixod.theme.colors.yellow = "e3a51a";      # one theme color
-#   programs.kitty.settings.font_size = 13;    # one setting
-#   programs.zsh.shellAliases.ll = "ls -l";    # one alias
+# At setup, your agent ports your existing dotfiles into this directory, and
+# copies ready-made files from nixod for what you don't have
+# (`nixod starter` lists them). Import each file below.
 { pkgs, ... }:
 
 {

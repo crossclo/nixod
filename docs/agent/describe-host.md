@@ -39,7 +39,7 @@ no hardware profiles: you write what this machine needs.
 - **Laptop** (`ls /sys/class/power_supply/BAT*`): `services.power-profiles-daemon.enable`,
   `services.upower.enable`, touchpad in `services.libinput.touchpad`, and
   `services.thermald.enable` on Intel only (`grep -m1 vendor_id /proc/cpuinfo`).
-  The i3 bar shows the battery by itself.
+  The starter's i3 bar shows the battery by itself.
 - **Another OS** (`lsblk -f`, `efibootmgr`): keep the boot loader the machine
   already uses, with its setup from `/etc/nixos/configuration.nix`.
   systemd-boot usually lists Windows by itself when it is on the same EFI
@@ -68,15 +68,7 @@ exactly as it is there.
 isn't brought over. nixod generates Syncthing from `network.nix`; old folders
 become `network.nix` folders (ask the user which), old devices are dropped.
 
-**Not the old desktop**, when `desktop-i3` is on: leave out its display
-manager (`services.displayManager.gdm`, `sddm`, `services.xserver.displayManager.lightdm`)
-and its desktop (`services.desktopManager.gnome`, `plasma6`, ...). desktop-i3
-starts greetd, and refuses to build next to another display manager. Ask the
-user first: if they'd rather keep their old desktop, leave `desktop-i3` off
-and bring the old desktop over instead. (GNOME stays available from the
-greetd menu by default: `nixod.profiles.desktop-i3.gnomeFallback`.)
-
-nixod's profiles (`nixod.profiles.<name>.enable`): `desktop-i3`, `audio`,
+nixod's system profiles (`nixod.profiles.<name>.enable`): `x11`, `audio`,
 `networking`, `zram`, `security-hardening`. A desktop host usually enables all
 of them:
 
@@ -84,7 +76,7 @@ of them:
 { config, pkgs, ... }:
 {
   nixod.profiles = {
-    desktop-i3.enable = true;
+    x11.enable = true;
     audio.enable = true;
     networking.enable = true;
     zram.enable = true;
@@ -95,25 +87,64 @@ of them:
 }
 ```
 
-## 4. Dotfiles
+`x11` is plumbing only: the X server, greetd with a login menu, keyring,
+portals, GPU. The session it starts is the user's `~/.xsession`, which Home
+Manager writes (`xsession.enable`, set by the window manager's config): the
+desktop itself comes from step 4.
 
-Look locally (`~/.config`, `~/.zshrc`, `~/.gitconfig`, an existing Home Manager
-config) and on GitHub (`nix run nixpkgs#gh -- repo list`, repos that look like
-dotfiles). An existing Home Manager config: keep its `home.stateVersion` (in
-`home/default.nix`, instead of the template's), it changes how some files are
-managed. Port
-them to Home Manager options where they exist, else `xdg.configFile` /
-`home.file`, into `home/` (every host) or `hosts/<name>/home.nix` (this one).
+**Not the old desktop**, when `x11` is on: leave out its display manager
+(`services.displayManager.gdm`, `sddm`, `services.xserver.displayManager.lightdm`).
+x11 starts greetd, and refuses to build next to another display manager. A
+desktop environment (`services.desktopManager.gnome`, `plasma6`, ...) can
+stay: its Wayland session shows in the greetd menu. Ask the user first: if
+they'd rather keep their old desktop and its display manager as they are,
+leave `x11` off and bring the old desktop over instead.
+
+## 4. Dotfiles, then the starter
+
+The framework ships no shell, editor or desktop config: the repo holds the
+user's own files, which they can open and edit. Two sources, in this order:
+
+1. **The user's dotfiles.** Look locally (`~/.config`, `~/.zshrc`,
+   `~/.gitconfig`, an existing Home Manager config) and on GitHub (`nix run
+   nixpkgs#gh -- repo list`, repos that look like dotfiles). An existing Home
+   Manager config: keep its `home.stateVersion` (in `home/default.nix`,
+   instead of the template's), it changes how some files are managed. Port
+   them to Home Manager options where they exist, else `xdg.configFile` /
+   `home.file`, into `home/` (one file per topic, imported from
+   `home/default.nix`). System-side needs go to `system/` (imported from
+   `system/default.nix`): the login shell (`programs.zsh.enable` and
+   `users.users.<user>.shell`), fonts, a window manager's system part.
+2. **The starter**, for what they don't have. `nixod starter` lists ready-made
+   files (an i3 desktop, zsh, Neovim, kitty, rofi, dunst, a GTK theme, fonts).
+   Show the user the list and ask which they want; then copy them:
+
+   ```sh
+   nixod starter copy home/i3.nix home/shell.nix home/neovim.nix
+   ```
+
+   It copies each file and what it needs (its `# needs:` line: the palette,
+   fonts, the login shell, the desktop's system half), keeps any file already
+   in the repo, and prints the `imports` lines to add to `home/default.nix`
+   and `system/default.nix`. Add them. A user with no dotfiles at all usually
+   takes the whole desktop: `home/i3.nix` brings everything it uses.
+
+Either way the files are the user's from now on: nixod never changes them,
+and every setting in them is plain, edited in place. `nixod starter diff`
+later shows what changed in the starter since. nixod itself only adds git's
+identity and signing, and the SSH agent (defaults: setting the same option in
+`home/` wins).
+
+Something must show notifications: `nixod check` tells the user about
+updates with one (`notify-send`). The starter's `home/notifications.nix`
+(dunst), or GNOME, or the user's own daemon.
+
 **In a join or a recovery, only `hosts/<name>/home.nix`** (and files under
 `hosts/<name>/`): the join request carries only `network.nix` and
-`hosts/<name>/`, so a change in `home/` would be missing from it. Shared
-changes go in a `change` once the machine is in.
-
-Everything nixod's profiles set is a default: setting the same option in
-`home/` wins and keeps the rest. Profiles turn off with
-`nixod.home.<profile>.enable = false;` (shell, git, neovim, dev, terminal, i3,
-rofi, notifications, gtk, apps). What the user's dotfiles don't cover comes
-from nixod's defaults.
+`hosts/<name>/`, so a change in `home/` or `system/` would be missing from
+it. The new machine gets the shared `home/` and `system/` as they are; what
+differs for it goes in `hosts/<name>/`. Shared changes go in a `change` once
+the machine is in.
 
 ## 5. Folders
 

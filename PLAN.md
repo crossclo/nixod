@@ -24,7 +24,8 @@ framework as a flake input.
 **Why:** fixes to the security-critical parts (signature checks, update units,
 config generation) reach every user through `nix flake update nixod`. With a
 template you copy once, each user would have to merge fixes by hand forever.
-Personal taste (desktop, theme, packages) stays in the instance.
+Personal taste (desktop, theme, packages) stays in the instance, as plain
+files the user owns (section 10).
 
 ---
 
@@ -46,17 +47,17 @@ modules/
       update.nix          # hub: automatic updates; hosts: check + notify, `nixod update`
       hub.nix             # hub role: sshd hardened, headless, Syncthing as system user
     profiles/             # opt-in, enabled per host via nixod.profiles.<name>.enable
-      desktop-i3.nix  audio.nix  networking.nix  zram.nix  security-hardening.nix
+      x11.nix  audio.nix  networking.nix  zram.nix  security-hardening.nix
+                          # x11: X server, greetd, keyring, portals; starts ~/.xsession
                           # hardware- and use-specific config (GPU driver, laptop
                           # power, Steam, Docker...) is NOT a profile: the agent
                           # writes it as plain NixOS options in hosts/<name>/
   home/
-    profiles/             # default user setup, from bennie's dotfiles with personal data removed
-      shell.nix  terminal.nix  neovim.nix  i3.nix  rofi.nix  notifications.nix
-      gtk.nix  git.nix  dev.nix  apps.nix
-                          # personal tool sets (anything user-specific) are NOT
-                          # shipped here: they live in the user's private instance, under home/
-    theme/colors.nix      # default palette, overridable
+    git.nix               # identity, SSH commit signing, allowed_signers, gh (mandatory)
+    ssh.nix               # ssh-agent, AddKeysToAgent, nixod.home.ssh.confirm
+starter/                  # plain files to COPY into an instance (never imported): section 10
+  home/                   # i3, shell, neovim, terminal, rofi, notifications, gtk, apps, dev, git, colors
+  system/                 # desktop (i3's system half), fonts, shell (zsh login shell)
 pkgs/nixod/               # the CLI (shell, writeShellApplication)
 docs/agent/               # playbooks the agent follows (init, describe-host, hub, join, review,
                           # change, remove, recover), shipped in the CLI: `nixod doc <name>`
@@ -75,9 +76,11 @@ hosts/
     default.nix           # profiles + host-specific config
     hardware-configuration.nix   # MANDATORY, generated on the machine itself (nixos-generate-config)
     disko.nix             # hub only
-home/
-  default.nix             # personal overrides / imported dotfiles
-  <name>.nix              # personal tool sets that stay private
+home/                     # Home Manager, every host: the user's own files
+  default.nix             # imports the rest; home.stateVersion
+  <topic>.nix             # ported dotfiles, or files copied from starter/home
+system/                   # NixOS, every host (not the hub): login shell, fonts,
+  default.nix             # the desktop's system half; copied from starter/system
 AGENTS.md                 # agent entry point (CLAUDE.md → symlink)
 .github/workflows/check.yml
 ```
@@ -95,7 +98,7 @@ AGENTS.md                 # agent entry point (CLAUDE.md → symlink)
     fullName = null;        # NIXOD:FILL
     email = null;           # NIXOD:FILL  git identity
   };
-  timeZone = null;          # NIXOD:FILL  e.g. "Europe/Paris"
+  timeZone = null;          # NIXOD:FILL  e.g. "Europe/Berlin"
   locale = "en_US.UTF-8";
   keyboard = { console = null; xkb = null; };   # NIXOD:FILL
   repo = {
@@ -127,16 +130,16 @@ it. The agent finds what's left to fill with `grep -rn NIXOD:FILL`.
       syncthingId = "BBBBBBB-...";
       userKey = "ssh-ed25519 AAAA...";          # logs into the hub + signs commits
       folders = {
-        projects = "/home/alice/sync/projects";
-        docs     = "/home/alice/sync/docs";
+        notes    = "/home/alice/sync/notes";
+        photos   = "/home/alice/sync/photos";
         media    = "/home/alice/Storage/media";
       };
     };
   };
 
   folders = {
-    projects = { versioning = { type = "staggered"; params.maxAge = "2592000"; }; };
-    docs     = { versioning = { type = "staggered"; params.maxAge = "31536000"; }; };
+    notes    = { versioning = { type = "staggered"; params.maxAge = "2592000"; }; };
+    photos   = { versioning = { type = "staggered"; params.maxAge = "31536000"; }; };
     media    = { hub.ignoreDelete = true; versioning = { type = "trashcan"; params.cleanoutDays = "30"; }; };
   };
 }
@@ -164,18 +167,20 @@ LAN may talk directly.
 
 ### Profiles instead of hostname checks
 
-Hosts enable features as options: `nixod.profiles.desktop-i3.enable = true;`.
-Home modules read them through `osConfig.nixod.profiles.*`, or detect hardware
+Hosts enable features as options: `nixod.profiles.x11.enable = true;`.
+Home files read them through `osConfig.nixod.profiles.*`, or detect hardware
 at runtime (the bar shows a battery only if `/sys/class/power_supply/BAT*`
-exists). This replaces things like `isLaptop = hostName == "Layla"`.
+exists). This replaces things like `isLaptop = hostName == "<laptop>"`.
 
 ### Everything the framework sets is a default
 
-Profiles set their values through `lib/defaults.nix` (priority 900: above the
+What the framework's modules set (system profiles, git signing, the SSH
+agent) goes through `lib/defaults.nix` (priority 900: above the
 `mkDefault` NixOS and Home Manager use, below a plain definition). An instance
-overrides one value (one alias, one color, one sysctl) by setting it, and keeps
-the rest. Additive lists (packages, plugins, startup commands) stay at normal
-priority and merge with the instance's.
+overrides one value (one git setting, one sysctl) by setting it, and keeps
+the rest. Additive lists stay at normal priority and merge with the
+instance's. The shell, editor and desktop aren't defaults any more: they are
+the instance's own files, edited in place (section 10).
 
 ---
 
@@ -217,6 +222,7 @@ by hand on a machine.
 | `nixod remove <name>` | trusted host | after the entry is deleted from `network.nix`: deletes `hosts/<name>/`, builds the hub, signed commit, push |
 | `nixod status` | any | running commit vs `main`, Syncthing peers, last hub update |
 | `nixod doc [<name>]` | any | prints a playbook of this nixod version (no name: lists them) |
+| `nixod starter [copy\|diff <file>...]` | instance repo | lists the `starter/` files of this nixod version; `copy` puts them (and what their `# needs:` line names) into `home/`/`system/`, never over an existing file, and prints the `imports` to add; `diff` compares the instance's copies with this version's |
 | `nixod trust-once --from <name>` | hub, **provider console only** | reads `machines.<name>.userKey` from `network.nix` on GitHub, shows its fingerprint, asks to confirm; then trusts that key for the next commit signed by it (or a day), once. Also takes the key itself |
 
 Before a machine runs nixod (init, join, recover), the CLI comes from the
@@ -436,13 +442,13 @@ Describing a host (shared by init, join and recovery), in this order:
 
 **Step 2: Hardware detection → profiles and host options.**
 - `lspci`: NVIDIA GPU → NVIDIA driver config, with driver choice by generation
-  (open driver vs proprietary; Pascal and older → proprietary, like Poppy).
+  (open driver vs proprietary; Pascal and older → proprietary).
   AMD/Intel → no extra driver.
 - `/sys/class/power_supply/BAT*` → laptop config (power profiles, upower,
   touchpad).
 - CPU vendor (`/proc/cpuinfo`) → microcode, thermald only on Intel.
 - `lsblk -f` + `efibootmgr`: another OS's EFI partition → GRUB with a chainload
-  entry (Poppy and Layla are the models).
+  entry.
 - Extra data disks → mounts by UUID with `nofail`.
 - No swap partition → zram (plus a swapfile when there's little RAM).
 - The agent shows what it detected and the profiles it plans to enable, and the
@@ -457,7 +463,8 @@ services, packages and settings that aren't hardware.
     config) and on GitHub (`gh repo list` → repos that look like dotfiles);
   - port them to Home Manager options where they exist, otherwise
     `xdg.configFile`/`home.file`;
-  - otherwise use the framework's default profiles.
+  - for what they don't have, offer the `starter/` files (`nixod starter`),
+    copied into the instance's `home/` and `system/` (section 10).
 **Step 5: Questions for the user.** Which folders this host syncs and where.
 
 ---
@@ -487,7 +494,7 @@ services, packages and settings that aren't hardware.
     signed by the new host's key, is then cleared, and refuses to run over SSH.
 - **nixos-anywhere:** a local QEMU VM running Debian as the fake VPS, then one real
   test on a throwaway VPS.
-- **Dogfooding:** move bennie's real network (Poppy, Layla, VPS) onto nixod as the
+- **Dogfooding:** move the author's real network (two hosts and a VPS) onto nixod as the
   final acceptance test.
 
 ---
@@ -496,13 +503,138 @@ services, packages and settings that aren't hardware.
 
 | Phase | Deliverable | Done when |
 |---|---|---|
-| 1. Framework skeleton | modules/profiles ported from the dotfiles (all modules except the personal tool list in `home/security.nix`, which is not read or ported), personal data removed; `settings.nix` + assertions; template | a dummy host evaluates; CI green |
+| 1. Framework skeleton | system modules and profiles; `settings.nix` + assertions; template | a dummy host evaluates; CI green |
 | 2. The network | `network.nix` schema, `derive.nix`, `syncthing.nix`, `ssh.nix` | eval tests + 3-node sync VM test pass |
 | 3. CLI: identities + hub | `identity`, `probe`, `install-hub` | the hub installs on a local VM with a known ID |
 | 4. Updates and trust | verification script, `update-hub`, `update-host`, notification, `trust-once` | update + recovery VM tests pass (accept + all rejections) |
 | 5. Join | `join`, `review`, `approve`, CI workflow | a full join flow works between two VMs |
 | 6. Agent | `AGENTS.md`, playbooks | a fresh agent completes init on VMs from the README alone |
-| 7. Dogfood | bennie's network migrated | Poppy, Layla and the VPS run on nixod; old dotfiles archived |
+| 7. Dogfood | the author's network migrated | both hosts and the VPS run on nixod; old dotfiles archived |
+| 8. v2: mechanism only | section 10: taste moved to `starter/`, `x11` profile, `system/`, `nixod starter` | the fixture evaluates every starter file; the starter's Neovim starts cleanly |
+
+---
+
+## 10. v2: mechanism-only framework
+
+Decided after the first dogfood (2026-10-12), done the same day. The instance
+repo came out nearly empty: `settings.nix`, `network.nix`, `hosts/<name>/`
+and a `home/` with almost nothing in it. Everything that actually builds the
+desktop lived in the framework, reachable only as a root-owned read-only
+store path. Three problems followed.
+
+- **Nothing to read.** To change one setting you must first know the option
+  exists. There is no local file to open, so the normal Nix reflex (open the
+  file, edit the line) does not work. Section 2's "everything is a default" is
+  true and still not discoverable.
+- **Taste shipped as framework.** `modules/home/profiles/` was the author's
+  dotfiles with the names removed. A public framework therefore shipped one
+  user's palette, AZERTY workspace keysyms and LSP set as everyone's
+  defaults.
+- **Breakage the user cannot fix.** nvim-treesitter's rewrite (nixpkgs 26.05)
+  deleted the `nvim-treesitter.configs` module; `modules/home/profiles/neovim.nix`
+  still called it, so Neovim aborted on startup for every instance and the
+  user had no way to patch it locally.
+
+### The rule
+
+> If it generates a **dotfile** the user would otherwise hand-write, it is
+> **taste**. If it generates **system wiring** -- units, daemons, keys, sync --
+> it is **mechanism**.
+
+Mechanism stays a flake input, so security fixes keep reaching every machine
+(section 0's reason still holds, for the parts that justify it). Taste becomes
+plain files copied once into the instance, which the user then owns outright.
+
+### Split
+
+| Stays in the framework (module) | Moved to `starter/` (plain file) |
+|---|---|
+| `lib/`, `pkgs/nixod` (CLI, playbooks) | `home/`: `i3.nix`, `shell.nix`, `neovim.nix`, `terminal.nix`, `rofi.nix`, `gtk.nix`, `colors.nix`, `apps.nix`, `dev.nix`, `notifications.nix`, and `git.nix` (delta, `pull.rebase`, ...) |
+| `modules/nixos/nixod/*` (syncthing, update, ssh, hub, network) | `system/desktop.nix`: i3, the i3lock PAM entry, boot splash, the GNOME fallback session, `_JAVA_AWT_WM_NONREPARENTING` |
+| `modules/nixos/core.nix`, `settings.nix` | `system/fonts.nix`: the font packages and fontconfig defaults |
+| `modules/home/git.nix`: identity, signing, `allowed_signers`, gh credential helper. **Mandatory** (no enable option): the hub only applies signed commits | `system/shell.nix`: zsh as the login shell (it was a framework default; a user with bash dotfiles got zsh's first-run wizard) |
+| `modules/home/ssh.nix`: ssh-agent, `AddKeysToAgent`, `nixod.home.ssh.confirm` (out of the old `shell.nix`) | |
+| `profiles/x11.nix`: X server, startx, greetd + tuigreet, auto-login, keyring, dconf, portals, GPU; the display-manager assertion | |
+| `audio`, `networking`, `zram`, `security-hardening`: wiring with no dotfile equivalent | |
+
+The old `desktop-i3` profile was split, not kept whole: `x11` starts
+`~/.xsession` (whatever window manager Home Manager writes there), the tuigreet
+entry is named by `nixod.profiles.x11.sessionName` (`system/desktop.nix` sets
+`"i3"`). `nixod.home.ssh.confirm` asserts `x11` instead of `desktop-i3`.
+
+### `starter/`
+
+A directory of plain `.nix` files, **never imported as a flake module** and never
+an input of the instance. Nothing the framework exports evaluates it. It exists
+only to be copied, by `nixod starter copy` (the CLI package carries it, so the
+files match the nixod version the instance pins).
+
+- `home/*` are Home Manager modules, `system/*` NixOS modules, each a plain
+  file with no options of its own. The desktop files act only under
+  `lib.mkIf osConfig.nixod.profiles.x11.enable`, so one `home/` serves hosts
+  with and without a desktop.
+- `colors.nix` is data, imported by the files that use it (`import
+  ./colors.nix`): the old `nixod.theme.colors` option is gone. Changing a
+  color is editing that file.
+- A file's `# needs:` line names the files it relies on (`home/i3.nix` needs
+  the palette, the fonts, `system/desktop.nix`, rofi, kitty, dunst);
+  `nixod starter copy` copies them along. Its first comment line is what
+  `nixod starter` lists.
+- The framework's checks still evaluate every starter file: the test fixture
+  imports them directly (`tests/fixture/home`, `tests/fixture/system`), and
+  `starter-neovim` starts the generated Neovim config headless on a `.nix`
+  file and fails on any error output (the breakage above, caught).
+
+### The instance's `system/`
+
+`home/` had no system-side twin, and the starter's desktop has a system half
+(i3, PAM, fonts, login shell). `mkNetwork` now imports `system/default.nix`,
+when it exists, on every host (not the hub): shared NixOS config, as `home/`
+is shared Home Manager config. A join request can't change it (only
+`network.nix` and `hosts/<name>/`), like `home/`.
+
+### Init flow
+
+`describe-host` step 4, replacing "anything it doesn't find comes from the
+template defaults":
+
+1. read the user's existing dotfiles (machine or GitHub) and write them into the
+   instance's `home/` (and `system/` for their system side);
+2. for whatever they do not have, `nixod starter`, ask, `nixod starter copy`;
+3. the instance always ends up with real, readable files that it owns.
+
+### Migration of an existing instance
+
+The old options now fail evaluation with a message saying what to do
+(`lib.mkRemovedOptionModule`): `nixod.home.<profile>.enable`, `nixod.theme`,
+`nixod.profiles.desktop-i3`. For an instance that had already moved its
+dotfiles into `home/` and turned every `nixod.home.*` profile off except git:
+
+- delete the `nixod.home = { ... enable = false; }` block;
+- `nixod.profiles.desktop-i3` → `nixod.profiles.x11` (`autoLogin` moves
+  with it; `gnomeFallback` is gone, GNOME is in `system/desktop.nix`);
+- create `system/default.nix` and bring in what the framework used to set:
+  `nixod starter copy system/desktop.nix system/fonts.nix system/shell.nix`
+  (or the equivalent from the user's own files): without `system/shell.nix`
+  the login shell falls back to bash, without the i3lock PAM entry the lock
+  screen refuses every password.
+
+### Cost, accepted
+
+Upstream improvements to the dotfiles stop reaching existing instances: fix
+Neovim once and nobody else gets it. That is the right trade for taste and the
+wrong one for signing, which is exactly where the line is drawn. The safety
+valve: `nixod starter diff` shows the instance's copies against the current
+`starter/`, so improvements can be pulled in deliberately.
+
+### Also in this pass
+
+- **Identifiers scrubbed.** The author's user name, host names and synced
+  folder names are gone from the tree (examples use `alice`, `tower`,
+  `notes`, `photos`). They remain in older commits' `PLAN.md`; a fresh repo
+  would drop them, a choice rather than a necessity.
+- Section 9 phase 1 no longer says the profiles are "ported from the
+  dotfiles".
 
 ---
 
@@ -510,6 +642,7 @@ services, packages and settings that aren't hardware.
 
 - **Hub admin access:** keep SSH to the hub for every host (debugging), or only
   through git? Current plan: every host `userKey` can SSH in.
-- **Default desktop:** ship bennie's i3 setup (personal data removed) as the
-  default, or look for a well-known community config on GitHub. Current plan: i3
-  default, and the user's own dotfiles always come first.
+- **Default desktop:** settled by section 10 -- the framework ships no desktop at
+  all; the i3 set is `starter/` files, copied into the instance at init.
+- **`profiles/desktop-i3.nix`:** settled by section 10 -- split into the
+  neutral `profiles/x11.nix` and `starter/system/desktop.nix`.

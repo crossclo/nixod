@@ -1,46 +1,50 @@
-# Default user setup. Every profile can be turned off from the instance:
-#   nixod.home.dev.enable = true;
-#   nixod.home.neovim.enable = false;
-# Profiles tied to the desktop follow osConfig.nixod.profiles.desktop-i3.enable.
-{ lib, osConfig, ... }:
+# What every host's user gets from nixod: the wiring the network relies on,
+# nothing else. Git signs commits with this machine's key (the others only
+# apply signed commits), and the SSH agent holds that key.
+#
+# The shell, the editor and the desktop are the instance's own files, in its
+# home/: the user's dotfiles, or files copied from nixod's starter/ at init
+# (`nixod starter`).
+{ lib, ... }:
 
 let
-  desktop = osConfig.nixod.profiles.desktop-i3.enable;
-
-  profile =
-    default: description:
-    lib.mkOption {
-      type = lib.types.bool;
-      inherit default description;
-    };
+  # Options of the old built-in profiles (before starter/). Setting one fails
+  # with a message saying what to do instead.
+  removed =
+    path:
+    lib.mkRemovedOptionModule path ''
+      nixod no longer ships a shell, editor or desktop: that config lives in
+      your home/ now (`nixod starter` lists ready-made files to copy there).
+      Delete this setting.'';
 in
 {
   imports = [
-    ./theme
-    ./profiles/shell.nix
-    ./profiles/git.nix
-    ./profiles/neovim.nix
-    ./profiles/dev.nix
-    ./profiles/terminal.nix
-    ./profiles/i3.nix
-    ./profiles/rofi.nix
-    ./profiles/notifications.nix
-    ./profiles/gtk.nix
-    ./profiles/apps.nix
-  ];
-
-  options.nixod.home = {
-    shell.enable = profile true "zsh, starship and modern CLI tools";
-    git.enable = profile true "git with the identity from settings.nix";
-    neovim.enable = profile true "Neovim with LSP, completion and Telescope";
-    dev.enable = profile false "compilers, debuggers and dev tools";
-    terminal.enable = profile desktop "the kitty terminal";
-    i3.enable = profile desktop "the i3 config (bar, lock screen, compositor)";
-    rofi.enable = profile desktop "the rofi launcher";
-    notifications.enable = profile desktop "dunst notifications";
-    gtk.enable = profile desktop "GTK/Qt/cursor theme";
-    apps.enable = profile desktop "desktop apps (browser, media, password manager)";
-  };
+    ./git.nix
+    ./ssh.nix
+    (removed [
+      "nixod"
+      "theme"
+    ])
+  ]
+  ++ map
+    (p: removed [
+      "nixod"
+      "home"
+      p
+      "enable"
+    ])
+    [
+      "shell"
+      "git"
+      "neovim"
+      "dev"
+      "terminal"
+      "i3"
+      "rofi"
+      "notifications"
+      "gtk"
+      "apps"
+    ];
 
   config.programs.home-manager.enable = true;
 }

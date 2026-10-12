@@ -19,13 +19,18 @@ answer a few questions and rebuild.
 - **One repo describes everything.** Every machine is in it: its system, its
   desktop, its dotfiles, its synced folders, even the VPS disk layout. Nothing is
   configured by hand. If a machine dies, you rebuild it from the repo.
-- **Your files follow you.** Folders like `projects`, `docs` or `keepass` are synced
+- **Your files follow you.** Folders like `notes`, `photos` or `music` are synced
   between all your machines with Syncthing. The VPS is always online, so two
   machines that are never on at the same time still stay in sync.
 - **The network is closed.** A machine only joins if a machine you already trust
   approves it. The repo holds the list of approved machines.
 - **Your agent does the setup.** The template contains no personal data. Your agent
   fills it in: your user, your keys, your hardware, your existing dotfiles.
+- **Your config is yours.** Your shell, editor and desktop live in your repo
+  as plain files you open and edit: your own dotfiles, or ready-made ones
+  copied from nixod's starter (an i3 desktop, zsh, Neovim, kitty...). nixod
+  itself only carries the wiring: sync, keys, signing, updates. Its fixes
+  reach every machine; it never touches your files.
 
 ---
 
@@ -120,8 +125,9 @@ access to its stock Linux), and a GitHub account.
    - looks at the hardware to pick the right options: graphics card driver
      (NVIDIA), laptop features (battery, touchpad), dual boot, extra disks,
    - reads your current NixOS config and your existing dotfiles (on the machine
-     or in your GitHub repos) and brings them into the template; anything it
-     doesn't find comes from the template defaults,
+     or in your GitHub repos) and brings them into the repo; for what you
+     don't have, it offers nixod's starter files (an i3 desktop, zsh, Neovim,
+     kitty...), copied into the repo as your own,
    - asks you the basics: user name, time zone, keyboard, which folders to sync.
 4. **The agent creates the identities in advance,** for both your machine and the
    VPS: the Syncthing IDs and the SSH keys. Both machines go into `network.nix`

@@ -55,7 +55,8 @@ for a `hosts/<name>/` written on this machine.
   run or adapt its steps by hand, and tell the user what you did differently
   and why. If the fix is general, suggest it upstream to nixod.
 - Ask the user before anything they would want to decide: which folders to
-  sync, which profiles to enable, what to bring over from their old config.
+  sync, which profiles to enable, what to bring over from their old config,
+  which starter files they want.
 - Commits are signed, and the hub is reached, with this machine's key
   `~/.ssh/nixod_ed25519`. If signing or `ssh <hub>` fails because the key has a
   passphrase and isn't loaded, ask the user to run `ssh-add
@@ -63,5 +64,9 @@ for a `hosts/<name>/` written on this machine.
   `nixod.home.ssh.confirm`), then retry. With `nixod.home.ssh.confirm`, each
   use shows the user a dialog: if they refuse, that is their answer. Never
   sign another way to get around it.
-- Everything nixod's modules set is a default. Override in `home/` or
-  `hosts/<name>/`; don't copy nixod's modules into this repo.
+- The shell, editor and desktop are this repo's own files (`home/`,
+  `system/`): the user's dotfiles, or files copied from nixod's starter
+  (`nixod starter`). Change a setting where it is written. What nixod's
+  modules set (git signing, the SSH agent, the system profiles) is a
+  default: override it in `home/`, `system/` or `hosts/<name>/`; don't copy
+  nixod's modules into this repo.

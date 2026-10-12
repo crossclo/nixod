@@ -1,18 +1,18 @@
-# Rofi: app launcher (X11) and backend of the power menu, themed from
-# nixod.theme.colors.
+# Rofi: app launcher (X11) and the power menu's backend.
+# needs: home/colors.nix system/fonts.nix
 {
-  config,
   lib,
   pkgs,
+  osConfig,
   ...
 }:
 
 let
-  c = config.nixod.theme.colors;
-  defaults = import ../../../lib/defaults.nix { inherit lib; };
+  c = import ./colors.nix;
 in
 {
-  config = lib.mkIf config.nixod.home.rofi.enable (defaults {
+  # Desktop hosts only (nixod.profiles.x11).
+  config = lib.mkIf osConfig.nixod.profiles.x11.enable {
     programs.rofi = {
       enable = true;
       package = pkgs.rofi;
@@ -91,5 +91,5 @@ in
         drun-display-format = "{name}";
       };
     };
-  });
+  };
 }

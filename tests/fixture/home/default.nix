@@ -1,8 +1,24 @@
+# Every starter file, imported from the framework's starter/ (an instance
+# has copies), so they are all evaluated. dev.nix is imported by one host
+# (hosts/tower/home.nix).
+let
+  starter = ../../../starter/home;
+in
 {
-  # Overrides of single default values (checked by tests/default.nix).
-  nixod.theme.colors.yellow = "d4a017";
-  programs.kitty.settings.background_opacity = "1.0";
-  programs.zsh.shellAliases.ll = "eza -l";
+  imports = map (f: starter + "/${f}.nix") [
+    "shell"
+    "git"
+    "neovim"
+    "terminal"
+    "i3"
+    "rofi"
+    "notifications"
+    "gtk"
+    "apps"
+  ];
+
+  # Override of a single value nixod sets (checked by tests/default.nix).
+  programs.git.settings.user.email = "alice@work.example";
 
   home.stateVersion = "26.05";
 }

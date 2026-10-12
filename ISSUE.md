@@ -37,7 +37,7 @@ VM tests included (CI run 38084260057, one runner per VM test).
 | P6 | First switch kills the session | `nixos-rebuild boot` and a reboot, as the last step; the user is told how to open a terminal in i3 and how to boot the previous generation. |
 | P7 | VPS memory and arch not checked | `hub.md` checks `memoryKiB` and `arch` first. |
 | P8 | Console password hash in the repo | Out of the repo: `nixod identity hub --console-password` stages a yescrypt hash, installed as `/var/lib/nixod/console-password` (`hashedPasswordFile`); `install-hub` refuses without it. |
-| P10 | Old display manager ported next to greetd | `describe-host` says not to; `desktop-i3` asserts no other display manager is on. Boot-loader advice follows the machine's boot loader. |
+| P10 | Old display manager ported next to greetd | `describe-host` says not to; the `x11` profile (was `desktop-i3`) asserts no other display manager is on. Boot-loader advice follows the machine's boot loader. |
 | P11 | Hardware config visibility | `install-hub --stage hardware` adds the file to git itself. |
 | M1–M10 | Minor | AGENTS.md wording (M1); folders asked in the identity step (M2); `$HOME` in the signing key path (M3); `keyboard.xkbVariant` (M4); `extraLocaleSettings` copied (M5); versioning asked, with the options (M6); existing `home.stateVersion` kept (M7); probe's kernel modules not copied (M8); `flake.lock` committed (M9); `nofail` in `hosts/<name>/default.nix` (M10). |
 | T6 | Syncthing global discovery | Decided: global discovery and relays off, local discovery on. |
@@ -66,6 +66,7 @@ VM tests included (CI run 38084260057, one runner per VM test).
 | Q13 | `approve`/`join` printed outdated next steps | Both print `update --first <name>`, then reboot. |
 | q1–q13 | Minor | AGENTS row after the first reboot; `approve` resets after a refused push; existing Syncthing config not ported; probe saved outside the repo; flakes flag in commands handed to the user; `ssh -t` for `passwd`; `remove` refuses this machine and the last host; remove.md on what happens to folders; review.md on building the request vs the merge; README CI wording; moving to a new VPS vs reinstalling; PLAN drift; sudo-user providers. Also: `check_base` with no running revision requires the base to be signed; change.md fast-forwards to the verified commit instead of `git pull`. |
 | S1 | nixos-anywhere connected with host key checking off, so the key checked at init step 4 was never enforced during the install | `install-hub` pins it: nixos-anywhere runs behind an `ssh` that puts `StrictHostKeyChecking=yes` and the VPS's entries from `~/.ssh/known_hosts` first (ssh keeps the first value of an option; `nix copy` and `ssh-copy-id` go through it too). The kexec installer keeps the provider OS's host keys, so the same key holds before and after the kexec. `install-hub` refuses when the key is unknown, and tries one connection first, since nixos-anywhere would retry a mismatch forever. VM-tested: unknown key and wrong key refused. |
+| V1 | (dogfood, 2026-10-12) Neovim aborted at startup on every instance (nvim-treesitter's `configs` module is gone), and the user couldn't fix it: the config was a framework store path | PLAN section 10: shell, editor and desktop moved to `starter/`, plain files copied into the instance (`nixod starter`), which owns them; the framework keeps the wiring (git signing, ssh-agent, `x11`, the network). The starter's Neovim starts treesitter per buffer; the `starter-neovim` check starts it headless and fails on any error. |
 | N1 | (new) A machine that is behind rejected commits signed by machines that joined since, and accepted ones signed by machines removed since | Trust follows the history: each signed commit that changes `network.nix` updates the trusted keys for the commits after it (`verify` in `lib.sh`, tested in `tests/update.nix`). |
 
 ---
@@ -111,8 +112,10 @@ output.
 
 ### T5. The desktop
 
-The host modules (i3, greetd, Home Manager profiles) are evaluated in the
-checks (`eval-host`) but never built and never booted. The VM tests use hosts
+The host modules (`x11`, greetd) and the starter files (i3, the Home Manager
+files) are evaluated in the checks (`eval-host`) but never built and never
+booted (the starter's Neovim config is the exception: `starter-neovim` runs
+it). The VM tests use hosts
 without a desktop. That includes `nixod.home.ssh.confirm`: whether the
 ssh-agent, started with the graphical session, gets DISPLAY and shows the
 dialog is unverified.

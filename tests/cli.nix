@@ -111,6 +111,30 @@ pkgs.runCommand "nixod-cli"
       if nixod install-hub hub root@203.0.113.10 --stage install --staging "$TMPDIR/staging" --yes 2>err; then exit 1; fi
       expect "no console password staged" err
 
+      # ---- starter: lists, copies with what a file needs, never overwrites ----
+      nixod starter >list
+      expect "home/i3.nix" list
+      expect "system/shell.nix" list
+      if nixod starter copy home/i3.nix 2>err; then exit 1; fi
+      expect "run this in the instance repo" err
+      mkdir inst && (
+        cd inst
+        touch settings.nix network.nix
+        mkdir home && echo mine >home/colors.nix
+        nixod starter copy home/shell.nix 2>../copy
+        test -w home/shell.nix && test -s system/shell.nix
+        test "$(cat home/colors.nix)" = mine
+        if nixod starter copy ../settings.nix 2>/dev/null; then exit 1; fi
+        nixod starter diff home/shell.nix
+        echo "# edited" >>home/shell.nix
+        if nixod starter diff >../diff; then exit 1; fi
+      )
+      expect "home/colors.nix is already here, kept" copy
+      expect "home/default.nix: imports = [ ./shell.nix ];" copy
+      expect "system/default.nix: imports = [ ./shell.nix ];" copy
+      expect "+# edited" diff
+      expect "+mine" diff
+
       mkdir -p $out
       cp first.nix $out/host.nix
   ''

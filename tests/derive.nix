@@ -23,7 +23,7 @@ let
         syncthingId = id "TOWERAA";
         userKey = "${key "Tower"} alice@tower";
         folders = {
-          projects = "/home/alice/sync/projects";
+          notes = "/home/alice/sync/notes";
           media = "/mnt/storage/media";
         };
       };
@@ -31,11 +31,11 @@ let
         role = "host";
         syncthingId = id "LAPTOPA";
         userKey = key "Laptop";
-        folders.projects = "/home/alice/projects";
+        folders.notes = "/home/alice/notes";
       };
     };
     folders = {
-      projects.versioning.type = "simple";
+      notes.versioning.type = "simple";
       media = {
         label = "Media";
         hub.ignoreDelete = true;
@@ -58,8 +58,8 @@ let
           };
         };
         folders = {
-          projects = {
-            path = "/home/alice/sync/projects";
+          notes = {
+            path = "/home/alice/sync/notes";
             devices = [
               "vps"
               "laptop"
@@ -89,8 +89,8 @@ let
             label = "Media";
             ignoreDelete = true;
           };
-          projects = {
-            path = "/var/lib/syncthing/projects";
+          notes = {
+            path = "/var/lib/syncthing/notes";
             devices = [
               "laptop"
               "tower"
@@ -117,7 +117,7 @@ let
       expected = [
         "/mnt/storage/media"
         "/home/alice/sync"
-        "/home/alice/sync/projects"
+        "/home/alice/sync/notes"
       ];
     };
 
@@ -125,7 +125,7 @@ let
       actual = derive.folderDirs network "vps" "/home/alice";
       expected = [
         "/var/lib/syncthing/media"
-        "/var/lib/syncthing/projects"
+        "/var/lib/syncthing/notes"
       ];
     };
 
@@ -238,7 +238,7 @@ let
           c = {
             role = "host";
             syncthingId = id "BBBBBBB";
-            folders.docs = "relative/docs";
+            folders.photos = "relative/photos";
             colour = "blue";
           };
           "bad_name" = {
@@ -253,8 +253,8 @@ let
         "machines.bad_name.role must be \"host\" or \"hub\""
         "machines.c.userKey is missing"
         "machines.c.colour is not a field of a host"
-        "machines.c.folders.docs: there is no folder \"docs\" in folders"
-        "machines.c.folders.docs must be an absolute path"
+        "machines.c.folders.photos: there is no folder \"photos\" in folders"
+        "machines.c.folders.photos must be an absolute path"
         "there must be exactly one hub (found 2)"
         "Syncthing ID ${id "BBBBBBB"} is used by more than one machine"
       ];

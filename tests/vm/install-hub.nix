@@ -47,10 +47,10 @@ let
         role = "host";
         syncthingId = "TOWERAA-AAAAAAA-AAAAAAA-AAAAAAA-AAAAAAA-AAAAAAA-AAAAAAA-AAAAAAA";
         userKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPlaceholderTower";
-        folders.docs = "/home/alice/sync/docs";
+        folders.photos = "/home/alice/sync/photos";
       };
     };
-    folders.docs = { };
+    folders.photos = { };
   };
   networkFile = pkgs.writeText "network.nix" (lib.generators.toPretty { } network);
   # Same network, but the hub's entry has another Syncthing ID.

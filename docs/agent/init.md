@@ -69,7 +69,8 @@ git config user.email "<email>"
 ## 2. Describe this machine
 
 Follow `nixod doc describe-host`. Result: `hosts/<name>/`, with
-`hardware-configuration.nix` generated on this machine.
+`hardware-configuration.nix` generated on this machine, and the user's setup
+in `home/` and `system/` (their dotfiles, plus the starter files they chose).
 
 ## 3. This machine's identity
 
@@ -103,9 +104,9 @@ machines.<name> = {
   role = "host";
   syncthingId = "...";
   userKey = "ssh-ed25519 ...";
-  folders = { docs = "/home/<user>/sync/docs"; };   # folder name → path here
+  folders = { photos = "/home/<user>/sync/photos"; };   # folder name → path here
 };
-folders.docs = { versioning = { type = "trashcan"; params.cleanoutDays = "30"; }; };
+folders.photos = { versioning = { type = "trashcan"; params.cleanoutDays = "30"; }; };
 ```
 
 ## 4. VPS access (the user)
@@ -225,8 +226,9 @@ running session can't survive it. So the new system is made the boot
 default, then the machine reboots. This ends your session. Before, tell the
 user:
 
-- after the reboot: log in, open a terminal with **Super+Return**, `cd` to the
-  repo, start the agent again and say "resume the nixod setup";
+- after the reboot: log in, open a terminal (**Super+Return** with the
+  starter's i3; say how in the user's own desktop), `cd` to the repo, start
+  the agent again and say "resume the nixod setup";
 - if the new system doesn't boot, pick the previous generation in the boot
   menu, and tell the agent what happened.
 

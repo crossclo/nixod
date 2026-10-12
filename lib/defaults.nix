@@ -1,5 +1,5 @@
 # Turns a block of config into defaults: every leaf gets priority 900, so
-# an instance can override any single value (one alias, one color, one
+# an instance can override any single value (one git setting, one
 # sysctl) with a plain definition and keep the rest. 900 sits above the
 # lib.mkDefault (1000) that NixOS and Home Manager use for their own
 # defaults, so nixod's values still win over those.

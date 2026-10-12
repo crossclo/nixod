@@ -3,7 +3,7 @@
 # Docker...) is written here by the agent, as plain NixOS options.
 {
   nixod.profiles = {
-    desktop-i3 = {
+    x11 = {
       enable = true;
       autoLogin = true;
     };

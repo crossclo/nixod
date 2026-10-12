@@ -5,9 +5,9 @@
     email = "alice@example.org";
   };
 
-  timeZone = "Europe/Paris";
+  timeZone = "Etc/UTC";
   locale = "en_US.UTF-8";
-  extraLocaleSettings.LC_TIME = "fr_FR.UTF-8";
+  extraLocaleSettings.LC_TIME = "en_GB.UTF-8";
 
   keyboard = {
     console = "fr";

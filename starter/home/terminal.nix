@@ -1,12 +1,13 @@
-# Kitty: GPU terminal, themed from nixod.theme.colors.
-{ config, lib, ... }:
+# Kitty: GPU terminal, themed from colors.nix.
+# needs: home/colors.nix system/fonts.nix
+{ lib, osConfig, ... }:
 
 let
-  c = config.nixod.theme.colors;
-  defaults = import ../../../lib/defaults.nix { inherit lib; };
+  c = import ./colors.nix;
 in
 {
-  config = lib.mkIf config.nixod.home.terminal.enable (defaults {
+  # Desktop hosts only (nixod.profiles.x11).
+  config = lib.mkIf osConfig.nixod.profiles.x11.enable {
     programs.kitty = {
       enable = true;
       font = {
@@ -56,5 +57,5 @@ in
         color15 = "#${c.fg}";
       };
     };
-  });
+  };
 }
